@@ -1,0 +1,409 @@
+{
+  "zones": {
+    "battle": [
+      {
+        "card": {
+          "name": "「正義星帝」<ライオネル.Star>",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/deckcard15.webp",
+          "id": "c8aa0084-77ed-417e-9058-751bb3e456a4"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": [
+          {
+            "card": {
+              "name": "スロットンの心絵",
+              "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o007.jpg",
+              "id": "b67e7e69-014b-483c-9b98-e9895456f70a"
+            },
+            "tapped": false,
+            "face_down": false,
+            "under_cards": []
+          }
+        ]
+      },
+      {
+        "card": {
+          "name": "「正義星帝」<ライオネル.Star>",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/deckcard15.webp",
+          "id": "c8aa0084-77ed-417e-9058-751bb3e456a4"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": [
+          {
+            "card": {
+              "name": "スロットンの心絵",
+              "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o007.jpg",
+              "id": "b67e7e69-014b-483c-9b98-e9895456f70a"
+            },
+            "tapped": false,
+            "face_down": false,
+            "under_cards": []
+          }
+        ]
+      },
+      {
+        "card": {
+          "name": "「正義星帝」<ライオネル.Star>",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/deckcard15.webp",
+          "id": "c8aa0084-77ed-417e-9058-751bb3e456a4"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": [
+          {
+            "card": {
+              "name": "スロットンの心絵",
+              "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o007.jpg",
+              "id": "b67e7e69-014b-483c-9b98-e9895456f70a"
+            },
+            "tapped": false,
+            "face_down": false,
+            "under_cards": []
+          }
+        ]
+      },
+      {
+        "card": {
+          "name": "ゲラッチョの心絵",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o010.webp",
+          "id": "1e5809a9-6af7-4aae-8f12-47687169f3f8"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "MAX・ザ・ジョニー",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o003.jpg",
+          "id": "ee54840d-0d2c-408e-98d6-8454b43c01d3"
+        },
+        "tapped": true,
+        "face_down": false,
+        "under_cards": []
+      }
+    ],
+    "shield": [
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_b8e7f1a7-484e-46f9-96f5-f56039f50911"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_c23d7767-e6cd-422c-abb6-e82ed79a4d87"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_eee5e4db-306d-45cd-b3d6-76677d2cfae9"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_0454d310-5482-4123-a3a5-df180d842a1b"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_2a10e886-1e04-42c7-b3c6-a8edf789255b"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_b045d48a-f363-4986-bd1d-198d57b26f1c"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_14fee844-347b-4c70-a9b5-e433131e9346"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_46b4fd1e-722d-499f-87a4-bead08c41ccd"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_afb5e42d-28d2-4285-af95-a234cd2c1ef2"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_f9894b8a-d816-45f2-b044-df0fed4c3fda"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      }
+    ],
+    "deck": [
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_5d22ee64-2f27-4d13-b8ae-f729af81748c"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_7767b782-2706-4c0f-9e97-5a584f9325d5"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_c4ccea73-b283-4516-bdec-e19e07de38b6"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_2bc188e0-62d6-4e29-8897-d7e66007caef"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_e8aae10a-bcc7-4a7a-8dcd-5adfc628a823"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_0b0a1737-75f2-4d23-a56a-335135e2753a"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_1687a0bc-5ec4-4839-b1ad-8e0319337968"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_43da6e94-084b-4ba6-b076-7f8f7f3793e9"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ダミー",
+          "image_path": "",
+          "id": "dummy_3d583f61-297d-4373-932c-a44ca881220c"
+        },
+        "tapped": false,
+        "face_down": true,
+        "under_cards": []
+      }
+    ],
+    "graveyard": [
+      {
+        "card": {
+          "name": "理想と平和の決断",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o004.jpg",
+          "id": "173a592e-c773-408f-814c-d7578a2141d5"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "理想と平和の決断",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o004.jpg",
+          "id": "173a592e-c773-408f-814c-d7578a2141d5"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      }
+    ],
+    "mana": [
+      {
+        "card": {
+          "name": "コーライルの海幻",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o009.jpg",
+          "id": "919808e0-143f-4db2-8eb4-019c8412f269"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "♪なぜ離れ どこへ行くのか 君は今",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o011.webp",
+          "id": "2f80cacf-c5b7-4970-9506-089b1a6524fe"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ジョーカーズの心絵",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o006.jpg",
+          "id": "bf959ace-f360-47d6-bb81-1fcd7a8588b2"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "MAX・ザ・ジョニー",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o003.jpg",
+          "id": "ee54840d-0d2c-408e-98d6-8454b43c01d3"
+        },
+        "tapped": true,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ジョーカーズの心絵",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o006.jpg",
+          "id": "bf959ace-f360-47d6-bb81-1fcd7a8588b2"
+        },
+        "tapped": true,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ゲラッチョの心絵",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o010.webp",
+          "id": "1e5809a9-6af7-4aae-8f12-47687169f3f8"
+        },
+        "tapped": true,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "AQ NETWORK",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o008.jpg",
+          "id": "acb87a7c-46c2-4bf8-95c5-80a32c72e533"
+        },
+        "tapped": true,
+        "face_down": false,
+        "under_cards": []
+      }
+    ],
+    "hand": [
+      {
+        "card": {
+          "name": "AQ NETWORK",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o008.jpg",
+          "id": "acb87a7c-46c2-4bf8-95c5-80a32c72e533"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "コーライルの海幻",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o009.jpg",
+          "id": "919808e0-143f-4db2-8eb4-019c8412f269"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      },
+      {
+        "card": {
+          "name": "ゲラッチョの心絵",
+          "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o010.webp",
+          "id": "1e5809a9-6af7-4aae-8f12-47687169f3f8"
+        },
+        "tapped": false,
+        "face_down": false,
+        "under_cards": []
+      }
+    ]
+  }
+}

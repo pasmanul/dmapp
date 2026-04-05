@@ -1,0 +1,71 @@
+{
+  "name": "火光水ライオネルデッキ",
+  "cards": [
+    {
+      "id": "c8aa0084-77ed-417e-9058-751bb3e456a4",
+      "name": "「正義星帝」<ライオネル.Star>",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/deckcard15.webp",
+      "count": 4
+    },
+    {
+      "id": "d62d63e2-5d2a-47ad-a4f8-e973f2637133",
+      "name": "アルカディアス・モモキング",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o002F.jpg",
+      "count": 2
+    },
+    {
+      "id": "ee54840d-0d2c-408e-98d6-8454b43c01d3",
+      "name": "MAX・ザ・ジョニー",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o003.jpg",
+      "count": 3
+    },
+    {
+      "id": "173a592e-c773-408f-814c-d7578a2141d5",
+      "name": "理想と平和の決断",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o004.jpg",
+      "count": 4
+    },
+    {
+      "id": "895625ce-e9fe-466f-8644-883c95302842",
+      "name": "邪脳の魔法陣",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o005.jpg",
+      "count": 4
+    },
+    {
+      "id": "bf959ace-f360-47d6-bb81-1fcd7a8588b2",
+      "name": "ジョーカーズの心絵",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o006.jpg",
+      "count": 3
+    },
+    {
+      "id": "b67e7e69-014b-483c-9b98-e9895456f70a",
+      "name": "スロットンの心絵",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o007.jpg",
+      "count": 4
+    },
+    {
+      "id": "acb87a7c-46c2-4bf8-95c5-80a32c72e533",
+      "name": "AQ NETWORK",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o008.jpg",
+      "count": 4
+    },
+    {
+      "id": "919808e0-143f-4db2-8eb4-019c8412f269",
+      "name": "コーライルの海幻",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o009.jpg",
+      "count": 4
+    },
+    {
+      "id": "1e5809a9-6af7-4aae-8f12-47687169f3f8",
+      "name": "ゲラッチョの心絵",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o010.webp",
+      "count": 4
+    },
+    {
+      "id": "2f80cacf-c5b7-4970-9506-089b1a6524fe",
+      "name": "♪なぜ離れ どこへ行くのか 君は今",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/decks/火光水ライオネル/dm26sd1-o011.webp",
+      "count": 4
+    }
+  ]
+}
