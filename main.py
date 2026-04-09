@@ -4,7 +4,12 @@ import sys
 
 def main():
     # Ensure working directory is the project root
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    # When frozen by PyInstaller, use sys.executable (the .exe location)
+    # because __file__ points inside _internal/ subdirectory (PyInstaller 6.x)
+    if getattr(sys, 'frozen', False):
+        os.chdir(os.path.dirname(sys.executable))
+    else:
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
     from PyQt6.QtWidgets import QApplication
 
