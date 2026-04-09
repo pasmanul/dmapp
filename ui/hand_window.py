@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from models.card_library import card_sort_key
 from models.deck import Deck
 from models.game_state import GameState, ZoneType
 from .signals import game_signals
@@ -109,41 +110,14 @@ class HandWindow(QMainWindow):
         layout.addWidget(self.deck_list, 1)
 
     def _sort_hand(self):
-        _CIV_ORDER = ["無色", "光", "水", "闇", "火", "自然"]
-        _TYPE_ORDER = [
-            "タマシード", "クリーチャー", "ネオ進化", "Gネオ進化", "スター進化", "S-MAX進化",
-            "ツインパクト", "呪文", "クロスギア", "D2フィールド",
-        ]
-
-        def _sort_key(gc):
-            c = gc.card
-            civs = c.civilizations or []
-            n = len(civs)
-            if n == 0:
-                civ_rank = 0
-            elif n == 1:
-                civ_rank = _CIV_ORDER.index(civs[0]) + 1 if civs[0] in _CIV_ORDER else len(_CIV_ORDER) + 1
-            else:
-                civ_rank = len(_CIV_ORDER) + n
-            type_rank = _TYPE_ORDER.index(c.card_type) if c.card_type in _TYPE_ORDER else len(_TYPE_ORDER)
-            return (c.mana, type_rank, civ_rank, c.name)
-
         gs = GameState.get_instance()
         gs.push_snapshot()
-        gs.zones[ZoneType.HAND].cards.sort(key=_sort_key)
+        gs.zones[ZoneType.HAND].cards.sort(key=lambda gc: card_sort_key(gc.card))
         game_signals.zones_updated.emit()
 
     def _draw_card(self):
-        gs = GameState.get_instance()
-        deck = gs.zones[ZoneType.DECK]
-        if len(deck) == 0:
-            return
-        gs.push_snapshot()
-        gc = deck.remove_card(len(deck) - 1)
-        if gc:
-            gc.face_down = False
-            gs.zones[ZoneType.HAND].add_card(gc)
-        game_signals.zones_updated.emit()
+        if GameState.get_instance().draw_card():
+            game_signals.zones_updated.emit()
 
     def _load_deck(self):
         path, _ = QFileDialog.getOpenFileName(

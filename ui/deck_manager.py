@@ -258,6 +258,50 @@ class _LibraryCardGrid(QWidget):
         ctrl_row.addWidget(self._sort_combo)
         outer.addLayout(ctrl_row)
 
+        filter_row = QHBoxLayout()
+        filter_row.setSpacing(6)
+
+        mana_lbl = QLabel("マナ:")
+        mana_lbl.setFixedWidth(30)
+        filter_row.addWidget(mana_lbl)
+        self._mana_combo = QComboBox()
+        self._mana_combo.setFixedWidth(65)
+        self._mana_combo.addItem("すべて")
+        for i in range(1, 13):
+            self._mana_combo.addItem(str(i))
+        self._mana_combo.addItem("12+")
+        self._mana_combo.currentTextChanged.connect(self._refresh_filter)
+        filter_row.addWidget(self._mana_combo)
+
+        civ_lbl = QLabel("文明:")
+        civ_lbl.setFixedWidth(30)
+        filter_row.addWidget(civ_lbl)
+        self._civ_combo = QComboBox()
+        self._civ_combo.setFixedWidth(65)
+        self._civ_combo.addItem("すべて")
+        for civ in CIVILIZATIONS:
+            self._civ_combo.addItem(civ)
+        self._civ_combo.currentTextChanged.connect(self._refresh_filter)
+        filter_row.addWidget(self._civ_combo)
+
+        type_lbl = QLabel("タイプ:")
+        type_lbl.setFixedWidth(40)
+        filter_row.addWidget(type_lbl)
+        self._type_combo = QComboBox()
+        self._type_combo.setFixedWidth(110)
+        self._type_combo.addItem("すべて")
+        for ct in CARD_TYPES:
+            self._type_combo.addItem(ct)
+        self._type_combo.currentTextChanged.connect(self._refresh_filter)
+        filter_row.addWidget(self._type_combo)
+
+        reset_btn = QPushButton("リセット")
+        reset_btn.setFixedWidth(55)
+        reset_btn.clicked.connect(self._reset_filters)
+        filter_row.addWidget(reset_btn)
+        filter_row.addStretch()
+        outer.addLayout(filter_row)
+
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -300,11 +344,43 @@ class _LibraryCardGrid(QWidget):
 
     def _refresh_filter(self):
         query = self._search_edit.text().lower()
-        filtered = (
-            [c for c in self._all_cards if query in c.name.lower()]
-            if query else list(self._all_cards)
-        )
+        mana_sel = self._mana_combo.currentText()
+        civ_sel = self._civ_combo.currentText()
+        type_sel = self._type_combo.currentText()
+
+        filtered = []
+        for c in self._all_cards:
+            if query and query not in c.name.lower():
+                continue
+            if mana_sel != "すべて":
+                if mana_sel == "12+":
+                    if c.mana < 12:
+                        continue
+                else:
+                    if c.mana != int(mana_sel):
+                        continue
+            if civ_sel != "すべて" and civ_sel not in c.civilizations:
+                continue
+            if type_sel != "すべて" and c.card_type != type_sel:
+                continue
+            filtered.append(c)
+
         self._populate(_apply_sort(filtered, self._sort_combo.currentText()))
+
+    def _reset_filters(self):
+        self._search_edit.blockSignals(True)
+        self._mana_combo.blockSignals(True)
+        self._civ_combo.blockSignals(True)
+        self._type_combo.blockSignals(True)
+        self._search_edit.clear()
+        self._mana_combo.setCurrentIndex(0)
+        self._civ_combo.setCurrentIndex(0)
+        self._type_combo.setCurrentIndex(0)
+        self._search_edit.blockSignals(False)
+        self._mana_combo.blockSignals(False)
+        self._civ_combo.blockSignals(False)
+        self._type_combo.blockSignals(False)
+        self._refresh_filter()
 
     def _populate(self, cards: list[LibraryCard]):
         while self._grid.count():
@@ -991,6 +1067,9 @@ class DeckManagerDialog(QDialog):
     def _inc_card(self):
         card = self._get_selected_deck_card()
         if not card or not self.current_deck:
+            return
+        if card.count >= 4:
+            QMessageBox.warning(self, "エラー", "同じカードは4枚までです")
             return
         if self.current_deck.total_count >= Deck.MAX_SIZE:
             QMessageBox.warning(self, "エラー", "40枚を超えます")

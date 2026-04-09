@@ -14,10 +14,6 @@ THUMB_W = 110
 THUMB_H = 154
 
 
-THUMB_W = 110
-THUMB_H = 154
-
-
 class _DeckCardEntry(QFrame):
     """Card tile in the deck list (image + name + count)."""
 

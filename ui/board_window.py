@@ -1,8 +1,9 @@
 import os
+import random
 from datetime import datetime
 
 from PyQt6.QtCore import QEvent, Qt
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from models.card_library import card_sort_key
 from models.game_state import GameState, ZoneType
 
 from .constants import BATTLE_CARD_SCALE, CARD_H
@@ -39,9 +41,15 @@ class BoardWindow(QMainWindow):
         game_menu.addAction("初期状態にリセット", self._initialize_field)
         game_menu.addAction("フィールドを全消去", self._reset_field)
         game_menu.addSeparator()
-        game_menu.addAction("試合を保存　Ctrl+S", self._save_game)
+        save_action = QAction("試合を保存", self)
+        save_action.setShortcut(QKeySequence("Ctrl+S"))
+        save_action.triggered.connect(self._save_game)
+        game_menu.addAction(save_action)
         game_menu.addAction("試合をロード…", self._load_game)
-        game_menu.addAction("アンドゥ　Ctrl+Z", self._undo)
+        undo_action = QAction("アンドゥ", self)
+        undo_action.setShortcut(QKeySequence("Ctrl+Z"))
+        undo_action.triggered.connect(self._undo)
+        game_menu.addAction(undo_action)
         game_menu.addSeparator()
         game_menu.addAction("デッキ管理を開く", self._open_deck_manager)
 
@@ -153,35 +161,17 @@ class BoardWindow(QMainWindow):
         return super().eventFilter(obj, event)
 
     def _sort_battle_zone(self):
-        _CIV_ORDER = ["無色", "光", "水", "闇", "火", "自然"]
-        _TYPE_ORDER = [
-            "タマシード", "クリーチャー", "ネオ進化", "Gネオ進化", "スター進化", "S-MAX進化",
-            "ツインパクト", "呪文", "クロスギア", "D2フィールド",
-        ]
-
-        def _sort_key(gc):
-            c = gc.card
-            civs = c.civilizations or []
-            n = len(civs)
-            if n == 0:
-                civ_rank = 0                       # 無色
-            elif n == 1:
-                civ_rank = _CIV_ORDER.index(civs[0]) + 1 if civs[0] in _CIV_ORDER else len(_CIV_ORDER) + 1
-            else:
-                civ_rank = len(_CIV_ORDER) + n    # 多色：色数が少ない順
-            type_rank = _TYPE_ORDER.index(c.card_type) if c.card_type in _TYPE_ORDER else len(_TYPE_ORDER)
-            return (c.mana, type_rank, civ_rank, c.name)
-
         gs = GameState.get_instance()
         gs.push_snapshot()
-        row0 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 0], key=_sort_key)
-        row1 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 1], key=_sort_key)
+        row0 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 0], key=lambda gc: card_sort_key(gc.card))
+        row1 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 1], key=lambda gc: card_sort_key(gc.card))
         gs.zones[ZoneType.BATTLE].cards[:] = row0 + row1
         game_signals.zones_updated.emit()
 
     def _set_all_tap(self, zone_type: ZoneType, tapped: bool):
-        GameState.get_instance().push_snapshot()
-        for gc in GameState.get_instance().zones[zone_type].cards:
+        gs = GameState.get_instance()
+        gs.push_snapshot()
+        for gc in gs.zones[zone_type].cards:
             gc.tapped = tapped
         game_signals.zones_updated.emit()
 
@@ -219,19 +209,10 @@ class BoardWindow(QMainWindow):
         return panel
 
     def _draw_card(self):
-        gs = GameState.get_instance()
-        deck = gs.zones[ZoneType.DECK]
-        if len(deck) == 0:
-            return
-        gs.push_snapshot()
-        gc = deck.remove_card(len(deck) - 1)  # 山札の一番上（末尾）
-        if gc:
-            gc.face_down = False
-            gs.zones[ZoneType.HAND].add_card(gc)
-        game_signals.zones_updated.emit()
+        if GameState.get_instance().draw_card():
+            game_signals.zones_updated.emit()
 
     def _shuffle_deck(self):
-        import random
         gs = GameState.get_instance()
         deck = gs.zones[ZoneType.DECK]
         if len(deck) == 0:
@@ -260,8 +241,7 @@ class BoardWindow(QMainWindow):
         game_signals.zones_updated.emit()
 
     def _setup_shortcuts(self):
-        QShortcut(QKeySequence("Ctrl+S"), self).activated.connect(self._save_game)
-        QShortcut(QKeySequence("Ctrl+Z"), self).activated.connect(self._undo)
+        pass
 
     def _save_game(self):
         os.makedirs("data/saves", exist_ok=True)

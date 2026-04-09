@@ -134,7 +134,7 @@ class GameState:
                 self.zones[zt].add_card(_gc_from_dict(gc_dict))
 
     def save(self, path: str):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
 
@@ -145,6 +145,19 @@ class GameState:
     # ------------------------------------------------------------------
     # Field helpers
     # ------------------------------------------------------------------
+
+    def draw_card(self) -> bool:
+        """山札の一番上から手札へ1枚ドローする。成功したら True を返す。"""
+        deck = self.zones[ZoneType.DECK]
+        if not deck.cards:
+            return False
+        self.push_snapshot()
+        gc = deck.remove_card(len(deck) - 1)
+        if gc:
+            gc.face_down = False
+            self.zones[ZoneType.HAND].add_card(gc)
+            return True
+        return False
 
     def reset_field(self):
         for zt in [ZoneType.BATTLE, ZoneType.SHIELD, ZoneType.DECK, ZoneType.GRAVEYARD, ZoneType.MANA]:

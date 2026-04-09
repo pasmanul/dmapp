@@ -115,3 +115,17 @@ class CardLibrary:
             with open(LIBRARY_PATH, "r", encoding="utf-8") as f:
                 return cls.from_dict(json.load(f))
         return cls()
+
+
+def card_sort_key(card):
+    """ゲームボード/手札ソート用キー: (マナ, タイプ順, 文明順, 名前)"""
+    civs = card.civilizations or []
+    n = len(civs)
+    if n == 0:
+        civ_rank = 0
+    elif n == 1:
+        civ_rank = CIVILIZATIONS.index(civs[0]) + 1 if civs[0] in CIVILIZATIONS else len(CIVILIZATIONS) + 1
+    else:
+        civ_rank = len(CIVILIZATIONS) + n
+    type_rank = CARD_TYPES.index(card.card_type) if card.card_type in CARD_TYPES else len(CARD_TYPES)
+    return (card.mana, type_rank, civ_rank, card.name)
