@@ -1,8 +1,8 @@
-import json
 import os
 import re
+import uuid
 
-from PyQt6.QtCore import QMimeData, Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QMimeData
 from PyQt6.QtGui import QColor, QDrag, QFont, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -18,7 +18,6 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
-    QSizePolicy,
     QSpinBox,
     QSplitter,
     QVBoxLayout,
@@ -27,25 +26,53 @@ from PyQt6.QtWidgets import (
 
 from models.card import Card
 from models.card_library import (
-    CardLibrary, LibraryCard,
-    CIVILIZATIONS, CIV_COLORS,
-    CARD_TYPES, CARD_TYPE_COLORS,
+    CARD_TYPE_COLORS,
+    CARD_TYPES,
+    CIVILIZATIONS,
+    CIV_COLORS,
+    CardLibrary,
+    LibraryCard,
 )
 from models.deck import Deck
 
 DECKS_DIR = "data/decks"
-LIBRARY_MIME = "application/x-dmapp-library-card"
-LIB_THUMB_W, LIB_THUMB_H = 110, 154
 DECK_THUMB_W, DECK_THUMB_H = 110, 154
-EDIT_THUMB_W, EDIT_THUMB_H = 52, 73
+LIB_THUMB_W, LIB_THUMB_H = 110, 154
+
+_SORT_OPTIONS = ["マナ↑", "マナ↓", "名前順", "タイプ順"]
+
+def _apply_sort(cards: list, option: str) -> list:
+    if option == "マナ↑":
+        return sorted(cards, key=lambda c: (c.mana, c.name))
+    if option == "マナ↓":
+        return sorted(cards, key=lambda c: (-c.mana, c.name))
+    if option == "タイプ順":
+        return sorted(cards, key=lambda c: (c.card_type, c.mana, c.name))
+    return sorted(cards, key=lambda c: c.name)  # 名前順
+
+CARD_MIME = "application/x-library-card-id"
+
+_DIALOG_STYLE = """
+    QDialog, QWidget, QSplitter { background-color: #1a1a2e; color: #ddd; }
+    QLineEdit, QSpinBox, QComboBox {
+        background: #2a2a4a; color: #ddd; border: 1px solid #555;
+        padding: 2px 4px;
+    }
+    QPushButton {
+        background: #3a3a6a; color: #ddd; border: 1px solid #555;
+        border-radius: 3px; padding: 2px 8px;
+    }
+    QPushButton:hover { background: #4a4a8a; }
+    QListWidget { background: #2a2a4a; color: #ddd; border: 1px solid #555; }
+    QListWidget::item:selected { background: #4a4a8a; }
+    QScrollArea { background: #1a1a2e; border: none; }
+    QLabel { color: #ddd; }
+    QCheckBox { color: #ddd; }
+"""
 
 
 def _sanitize_filename(name: str) -> str:
     return re.sub(r'[\\/:*?"<>|\x00-\x1f]', '_', name).strip()
-
-
-def _civ_label(civs: list[str]) -> str:
-    return "".join(civs) if civs else ""
 
 
 def _is_rainbow(civs: list[str]) -> bool:
@@ -85,19 +112,20 @@ class _CivDots(QWidget):
 
 
 # ---------------------------------------------------------------------------
-# Library card tile (drag source)
+# Library card tile (draggable)
 # ---------------------------------------------------------------------------
 
-class _LibraryCardEntry(QFrame):
-    def __init__(self, lib_card: LibraryCard, on_click=None, parent=None):
+class _LibraryCardTile(QFrame):
+    def __init__(self, card: LibraryCard, on_click=None, parent=None):
         super().__init__(parent)
-        self.lib_card = lib_card
+        self.card = card
         self._on_click = on_click
-        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self._drag_start = None
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._set_normal_style()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(3, 3, 3, 3)
         layout.setSpacing(2)
         layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
@@ -105,44 +133,52 @@ class _LibraryCardEntry(QFrame):
         thumb.setFixedSize(LIB_THUMB_W, LIB_THUMB_H)
         thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         thumb.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        pix = QPixmap(lib_card.image_path)
+        pix = QPixmap(card.image_path)
         if not pix.isNull():
-            pix = pix.scaled(LIB_THUMB_W, LIB_THUMB_H,
-                             Qt.AspectRatioMode.IgnoreAspectRatio,
-                             Qt.TransformationMode.SmoothTransformation)
+            pix = pix.scaled(
+                LIB_THUMB_W, LIB_THUMB_H,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
         else:
             pix = QPixmap(LIB_THUMB_W, LIB_THUMB_H)
             pix.fill(QColor(70, 70, 70))
         thumb.setPixmap(pix)
         layout.addWidget(thumb, 0, Qt.AlignmentFlag.AlignHCenter)
 
-        name_lbl = QLabel(lib_card.name)
+        name_lbl = QLabel(card.name)
         name_lbl.setFont(QFont("Arial", 7))
         name_lbl.setStyleSheet("color: #ddd; border: none;")
         name_lbl.setWordWrap(True)
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name_lbl.setMaximumWidth(LIB_THUMB_W + 4)
         name_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         layout.addWidget(name_lbl)
 
-        if lib_card.civilizations:
-            dots = _CivDots(lib_card.civilizations)
-            layout.addWidget(dots, 0, Qt.AlignmentFlag.AlignHCenter)
+        info_widget = QWidget()
+        info_widget.setStyleSheet("background: transparent;")
+        info_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        info_row = QHBoxLayout(info_widget)
+        info_row.setContentsMargins(0, 0, 0, 0)
+        info_row.setSpacing(3)
 
-        if lib_card.card_type:
-            type_color = CARD_TYPE_COLORS.get(lib_card.card_type, "#aaa")
-            type_lbl = QLabel(lib_card.card_type)
-            type_lbl.setFont(QFont("Arial", 7, QFont.Weight.Bold))
-            type_lbl.setStyleSheet(f"color: {type_color}; border: none;")
-            type_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            type_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-            layout.addWidget(type_lbl)
-
-        mana_lbl = QLabel(f"M{lib_card.mana}")
-        mana_lbl.setFont(QFont("Arial", 8, QFont.Weight.Bold))
+        mana_lbl = QLabel(f"M{card.mana}")
+        mana_lbl.setFont(QFont("Arial", 7, QFont.Weight.Bold))
         mana_lbl.setStyleSheet("color: #44bbff; border: none;")
-        mana_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         mana_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        layout.addWidget(mana_lbl)
+        info_row.addWidget(mana_lbl)
+
+        for civ in card.civilizations:
+            dot = QLabel()
+            dot.setFixedSize(8, 8)
+            dot.setStyleSheet(
+                f"background: {CIV_COLORS.get(civ, '#888')}; "
+                "border-radius: 4px; border: none;"
+            )
+            dot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            info_row.addWidget(dot)
+
+        layout.addWidget(info_widget, 0, Qt.AlignmentFlag.AlignHCenter)
 
     def _set_normal_style(self):
         self.setStyleSheet(
@@ -152,57 +188,75 @@ class _LibraryCardEntry(QFrame):
     def set_selected(self, selected: bool):
         if selected:
             self.setStyleSheet(
-                "QFrame { background: #3a3a5a; border: 2px solid #7799ff; border-radius: 4px; }"
+                "QFrame { background: #2a3a5a; border: 2px solid #5599ff; border-radius: 4px; }"
             )
         else:
             self._set_normal_style()
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and self._on_click:
-            self._on_click(self.lib_card)
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_start = event.pos()
+            if self._on_click:
+                self._on_click(self.card.id)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        if not (event.buttons() & Qt.MouseButton.LeftButton):
-            return
+        if (self._drag_start is not None
+                and event.buttons() & Qt.MouseButton.LeftButton):
+            dist = (event.pos() - self._drag_start).manhattanLength()
+            if dist >= 10:
+                self._start_drag()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._drag_start = None
+        super().mouseReleaseEvent(event)
+
+    def _start_drag(self):
+        self._drag_start = None
         drag = QDrag(self)
         mime = QMimeData()
-        payload = json.dumps({
-            "id": self.lib_card.id,
-            "name": self.lib_card.name,
-            "image_path": self.lib_card.image_path,
-            "mana": self.lib_card.mana,
-            "civilizations": self.lib_card.civilizations,
-            "card_type": self.lib_card.card_type,
-        })
-        mime.setData(LIBRARY_MIME, payload.encode())
+        mime.setData(CARD_MIME, self.card.id.encode())
         drag.setMimeData(mime)
-        pix = QPixmap(self.lib_card.image_path)
-        if not pix.isNull():
-            pix = pix.scaled(LIB_THUMB_W, LIB_THUMB_H,
-                             Qt.AspectRatioMode.IgnoreAspectRatio,
-                             Qt.TransformationMode.SmoothTransformation)
-        else:
-            pix = QPixmap(LIB_THUMB_W, LIB_THUMB_H)
-            pix.fill(QColor(70, 70, 70))
+        pix = self.grab()
+        pix = pix.scaled(
+            LIB_THUMB_W, LIB_THUMB_H,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
         drag.setPixmap(pix)
-        drag.setHotSpot(event.pos())
+        drag.setHotSpot(pix.rect().center())
         drag.exec(Qt.DropAction.CopyAction)
 
 
 # ---------------------------------------------------------------------------
-# Library card grid (scroll + filter)
+# Library card grid
 # ---------------------------------------------------------------------------
 
-class _CardLibraryGrid(QWidget):
-    card_selected = pyqtSignal(object)  # LibraryCard
-    _TILE_W = LIB_THUMB_W + 8 + 6  # thumb + padding + spacing
+class _LibraryCardGrid(QWidget):
+    _TILE_W = LIB_THUMB_W + 8 + 6
 
-    def __init__(self, parent=None):
+    def __init__(self, on_select=None, parent=None):
         super().__init__(parent)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._on_select = on_select  # callback(card: LibraryCard | None)
+        self.setStyleSheet("background: #1a1a1a;")
+
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(4)
+
+        ctrl_row = QHBoxLayout()
+        self._search_edit = QLineEdit()
+        self._search_edit.setPlaceholderText("カード名で検索...")
+        self._search_edit.textChanged.connect(self._refresh_filter)
+        ctrl_row.addWidget(self._search_edit)
+        self._sort_combo = QComboBox()
+        self._sort_combo.setFixedWidth(80)
+        for opt in _SORT_OPTIONS:
+            self._sort_combo.addItem(opt)
+        self._sort_combo.currentTextChanged.connect(self._refresh_filter)
+        ctrl_row.addWidget(self._sort_combo)
+        outer.addLayout(ctrl_row)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -225,11 +279,10 @@ class _CardLibraryGrid(QWidget):
         self._scroll.setWidget(self._container)
         outer.addWidget(self._scroll)
 
-        self._all_cards: list[LibraryCard] = []
-        self._entries: list[_LibraryCardEntry] = []
+        self._tiles: list[_LibraryCardTile] = []
         self._selected_id: str | None = None
-        self._current_filter: str = ""
-        self._cols: int = 4
+        self._cols: int = 3
+        self._all_cards: list[LibraryCard] = []
 
     def _calc_cols(self) -> int:
         return max(2, (self.width() - 12 - 10) // self._TILE_W)
@@ -239,52 +292,58 @@ class _CardLibraryGrid(QWidget):
         new_cols = self._calc_cols()
         if new_cols != self._cols:
             self._cols = new_cols
-            self._apply_filter(self._current_filter)
+            self._refresh_filter()
 
-    def refresh(self, cards: list[LibraryCard]):
-        self._all_cards = list(cards)
-        self._apply_filter(self._current_filter)
+    def load_library(self, library: CardLibrary):
+        self._all_cards = list(library.cards)
+        self._refresh_filter()
 
-    def filter(self, text: str):
-        self._current_filter = text
-        self._apply_filter(text)
+    def _refresh_filter(self):
+        query = self._search_edit.text().lower()
+        filtered = (
+            [c for c in self._all_cards if query in c.name.lower()]
+            if query else list(self._all_cards)
+        )
+        self._populate(_apply_sort(filtered, self._sort_combo.currentText()))
 
-    def _apply_filter(self, text: str):
+    def _populate(self, cards: list[LibraryCard]):
         while self._grid.count():
             item = self._grid.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
-        self._entries.clear()
+                item.widget().setParent(None)
+        self._tiles.clear()
 
-        filtered = (
-            [c for c in self._all_cards if text.lower() in c.name.lower()]
-            if text else self._all_cards
-        )
-        for i, card in enumerate(filtered):
-            entry = _LibraryCardEntry(
-                card,
-                on_click=lambda c: self.card_selected.emit(c),
-            )
-            if card.id == self._selected_id:
-                entry.set_selected(True)
-            self._entries.append(entry)
-            self._grid.addWidget(entry, i // self._cols, i % self._cols)
+        for i, card in enumerate(cards):
+            tile = _LibraryCardTile(card, on_click=self._on_tile_click)
+            self._tiles.append(tile)
+            self._grid.addWidget(tile, i // self._cols, i % self._cols)
 
-    def set_selected(self, card_id: str | None):
+    def _on_tile_click(self, card_id: str):
         self._selected_id = card_id
-        for entry in self._entries:
-            entry.set_selected(entry.lib_card.id == card_id)
+        for tile in self._tiles:
+            tile.set_selected(tile.card.id == card_id)
+        if self._on_select:
+            self._on_select(self.get_selected_card())
+
+    def get_selected_card(self) -> LibraryCard | None:
+        if self._selected_id is None:
+            return None
+        return next((c for c in self._all_cards if c.id == self._selected_id), None)
+
+    def clear_selection(self):
+        self._selected_id = None
+        for tile in self._tiles:
+            tile.set_selected(False)
 
 
 # ---------------------------------------------------------------------------
-# Deck card tile (drop target item)
+# Deck card tile
 # ---------------------------------------------------------------------------
 
 class _DeckCardTile(QFrame):
-    def __init__(self, card: Card, index: int, on_click=None, parent=None):
+    def __init__(self, card: Card, on_click=None, parent=None):
         super().__init__(parent)
         self.card = card
-        self.index = index
         self._on_click = on_click
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._set_normal_style()
@@ -330,7 +389,6 @@ class _DeckCardTile(QFrame):
             type_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
             layout.addWidget(type_lbl)
 
-        # Mana + Count
         info_widget = QWidget()
         info_widget.setStyleSheet("background: transparent;")
         info_widget.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -367,25 +425,41 @@ class _DeckCardTile(QFrame):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self._on_click:
-            self._on_click(self.index)
+            self._on_click(self.card.id)
         super().mousePressEvent(event)
 
 
 # ---------------------------------------------------------------------------
-# Deck card grid (thumbnail grid, drop target)
+# Deck card grid (drop target)
 # ---------------------------------------------------------------------------
 
 class _DeckCardGrid(QWidget):
-    card_dropped = pyqtSignal(object)   # dict from MIME
-    _TILE_W = DECK_THUMB_W + 8 + 6  # thumb + padding + spacing
+    _TILE_W = DECK_THUMB_W + 8 + 6
 
-    def __init__(self, parent=None):
+    def __init__(self, on_drop=None, parent=None):
         super().__init__(parent)
-        self.setAcceptDrops(True)
+        self._on_drop = on_drop
         self.setStyleSheet("background: #1a1a1a;")
+        self.setAcceptDrops(True)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(4)
+
+        sort_row = QHBoxLayout()
+        sort_row.addStretch()
+        sort_lbl = QLabel("ソート:")
+        sort_lbl.setStyleSheet("color: #aaa; font-size: 11px;")
+        sort_row.addWidget(sort_lbl)
+        self._sort_combo = QComboBox()
+        self._sort_combo.setFixedWidth(80)
+        for opt in _SORT_OPTIONS:
+            self._sort_combo.addItem(opt)
+        self._sort_combo.currentTextChanged.connect(
+            lambda: self.refresh(self._current_deck)
+        )
+        sort_row.addWidget(self._sort_combo)
+        outer.addLayout(sort_row)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -400,7 +474,6 @@ class _DeckCardGrid(QWidget):
 
         self._container = QWidget()
         self._container.setStyleSheet("background: #1a1a1a;")
-        self._container.setAcceptDrops(True)
         self._grid = QGridLayout(self._container)
         self._grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._grid.setSpacing(6)
@@ -410,7 +483,7 @@ class _DeckCardGrid(QWidget):
         outer.addWidget(self._scroll)
 
         self._entries: list[_DeckCardTile] = []
-        self._selected_index: int = -1
+        self._selected_id: str | None = None
         self._cols: int = 4
         self._current_deck: Deck | None = None
 
@@ -424,53 +497,52 @@ class _DeckCardGrid(QWidget):
             self._cols = new_cols
             self.refresh(self._current_deck)
 
-    # ---- drop events (on outer widget and container) ----
-
-    def _accept_mime(self, event):
-        if event.mimeData().hasFormat(LIBRARY_MIME):
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    def dragEnterEvent(self, event):
-        self._accept_mime(event)
-
-    def dragMoveEvent(self, event):
-        self._accept_mime(event)
-
-    def dropEvent(self, event):
-        if event.mimeData().hasFormat(LIBRARY_MIME):
-            data = json.loads(event.mimeData().data(LIBRARY_MIME).data())
-            self.card_dropped.emit(data)
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    # ---- grid management ----
-
     def refresh(self, deck: Deck | None):
         self._current_deck = deck
         while self._grid.count():
             item = self._grid.takeAt(0)
             if item.widget():
-                item.widget().deleteLater()
+                item.widget().setParent(None)
         self._entries.clear()
-        self._selected_index = -1
 
         if not deck:
             return
-        for i, card in enumerate(deck.cards):
-            tile = _DeckCardTile(card, i, on_click=self._on_tile_click)
+        sorted_cards = _apply_sort(deck.cards, self._sort_combo.currentText())
+        for i, card in enumerate(sorted_cards):
+            tile = _DeckCardTile(card, on_click=self._on_tile_click)
             self._entries.append(tile)
             self._grid.addWidget(tile, i // self._cols, i % self._cols)
+            if card.id == self._selected_id:
+                tile.set_selected(True)
 
-    def _on_tile_click(self, index: int):
-        self._selected_index = index
+    def _on_tile_click(self, card_id: str):
+        self._selected_id = card_id
         for e in self._entries:
-            e.set_selected(e.index == index)
+            e.set_selected(e.card.id == card_id)
 
-    def get_selected_index(self) -> int:
-        return self._selected_index
+    def get_selected_card_id(self) -> str | None:
+        return self._selected_id
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(CARD_MIME):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasFormat(CARD_MIME):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasFormat(CARD_MIME):
+            card_id = event.mimeData().data(CARD_MIME).data().decode()
+            if self._on_drop:
+                self._on_drop(card_id)
+            event.acceptProposedAction()
+        else:
+            event.ignore()
 
 
 # ---------------------------------------------------------------------------
@@ -482,26 +554,13 @@ class DeckManagerDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("デッキ管理")
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, True)
-        self.setStyleSheet("""
-            QDialog, QWidget, QSplitter { background-color: #1a1a2e; color: #ddd; }
-            QLineEdit, QSpinBox, QComboBox { background: #2a2a4a; color: #ddd; border: 1px solid #555; }
-            QPushButton { background: #3a3a6a; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 2px 8px; }
-            QPushButton:hover { background: #4a4a8a; }
-            QListWidget { background: #2a2a4a; color: #ddd; border: 1px solid #555; }
-            QListWidget::item:selected { background: #4a4a8a; }
-            QScrollArea { background: #1a1a2e; border: none; }
-            QLabel { color: #ddd; }
-            QCheckBox { color: #ddd; }
-        """)
-        self.resize(1150, 700)
+        self.setStyleSheet(_DIALOG_STYLE)
+        self.resize(1100, 720)
         self.current_deck: Deck | None = None
-        self.library = CardLibrary.get_instance()
-        self._selected_lib_card: LibraryCard | None = None
-        self._lib_img_path: str = ""
-        self._civ_checks: dict[str, QCheckBox] = {}
+        self._library = CardLibrary.get_instance()
+        self._editing_card_id: str | None = None  # None = new card
         self._setup_ui()
         self._load_deck_list()
-        self._refresh_library()
 
     # -----------------------------------------------------------------------
     # UI setup
@@ -513,7 +572,7 @@ class DeckManagerDialog(QDialog):
         splitter.addWidget(self._build_deck_panel())
         splitter.addWidget(self._build_library_panel())
         splitter.addWidget(self._build_editor_panel())
-        splitter.setSizes([160, 470, 390])
+        splitter.setSizes([160, 420, 420])
         root.addWidget(splitter)
 
     # ---- Panel 1: Deck list ----
@@ -539,123 +598,114 @@ class DeckManagerDialog(QDialog):
 
     def _build_library_panel(self) -> QWidget:
         w = QWidget()
-        root = QVBoxLayout(w)
-        root.setContentsMargins(4, 4, 4, 4)
-        root.setSpacing(4)
+        layout = QVBoxLayout(w)
+        layout.setSpacing(4)
 
-        root.addWidget(QLabel("カードライブラリ"))
+        header = QHBoxLayout()
+        header.addWidget(QLabel("カードプール"))
+        header.addStretch()
+        self._lib_count_label = QLabel(f"{len(self._library.cards)} 枚")
+        self._lib_count_label.setStyleSheet("color: #aaa; font-size: 11px;")
+        header.addWidget(self._lib_count_label)
+        layout.addLayout(header)
 
-        self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("カード名で検索...")
-        self.search_edit.textChanged.connect(self._on_search)
-        root.addWidget(self.search_edit)
+        self.library_grid = _LibraryCardGrid(on_select=self._on_library_card_selected)
+        self.library_grid.load_library(self._library)
+        layout.addWidget(self.library_grid)
 
-        # 縦スプリッター: 上=グリッド, 下=編集フォーム
-        vsplit = QSplitter(Qt.Orientation.Vertical)
-        vsplit.setStyleSheet("QSplitter::handle:vertical { background: #3a3a5a; height: 4px; }")
+        hint = QLabel("カードをデッキエリアへドラッグ＆ドロップで追加")
+        hint.setStyleSheet("color: #888; font-size: 10px;")
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(hint)
 
-        self.lib_grid = _CardLibraryGrid()
-        self.lib_grid.card_selected.connect(self._on_lib_card_selected)
-        vsplit.addWidget(self.lib_grid)
-
-        # 編集フォームをスクロールエリアに収める
-        form_scroll = QScrollArea()
-        form_scroll.setWidgetResizable(True)
-        form_scroll.setStyleSheet("QScrollArea { background: #1a1a2e; border: none; }")
-        form_scroll.viewport().setStyleSheet("background: #1a1a2e;")
-        form_w = QWidget()
-        form_w.setStyleSheet("background: #1a1a2e;")
-        layout = QVBoxLayout(form_w)
-        layout.setContentsMargins(0, 4, 0, 0)
-        layout.setSpacing(6)
-
-        layout.addWidget(self._make_separator())
-        layout.addWidget(QLabel("カード情報"))
-
-        img_row = QHBoxLayout()
-        self.lib_img_label = QLabel()
-        self.lib_img_label.setFixedSize(EDIT_THUMB_W, EDIT_THUMB_H)
-        self.lib_img_label.setStyleSheet("border: 1px solid #888;")
-        self.lib_img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        img_row.addWidget(self.lib_img_label)
-        img_right = QVBoxLayout()
-        self.lib_img_path_label = QLabel("画像未選択")
-        self.lib_img_path_label.setWordWrap(True)
-        img_right.addWidget(self.lib_img_path_label)
-        sel_btn = QPushButton("画像を選択…")
-        sel_btn.clicked.connect(self._select_lib_image)
-        img_right.addWidget(sel_btn)
-        img_row.addLayout(img_right)
-        layout.addLayout(img_row)
-
-        cn_row = QHBoxLayout()
-        cn_row.addWidget(QLabel("カード名:"))
-        self.lib_name_edit = QLineEdit()
-        cn_row.addWidget(self.lib_name_edit)
-        layout.addLayout(cn_row)
-
-        cm_row = QHBoxLayout()
-        cm_row.addWidget(QLabel("マナ:"))
-        self.lib_mana_spin = QSpinBox()
-        self.lib_mana_spin.setRange(0, 99)
-        cm_row.addWidget(self.lib_mana_spin)
-        cm_row.addStretch()
-        layout.addLayout(cm_row)
-
-        ct_row = QHBoxLayout()
-        ct_row.addWidget(QLabel("タイプ:"))
-        self.lib_type_combo = QComboBox()
-        self.lib_type_combo.addItem("（未設定）", "")
-        for ct in CARD_TYPES:
-            self.lib_type_combo.addItem(ct, ct)
-        ct_row.addWidget(self.lib_type_combo)
-        ct_row.addStretch()
-        layout.addLayout(ct_row)
-
-        layout.addLayout(self._build_civ_ui())
-
-        btns = QHBoxLayout()
-        add_btn = QPushButton("ライブラリに追加")
-        add_btn.clicked.connect(self._add_lib_card)
-        upd_btn = QPushButton("更新")
-        upd_btn.clicked.connect(self._update_lib_card)
-        del_btn = QPushButton("削除")
-        del_btn.clicked.connect(self._delete_lib_card)
-        btns.addWidget(add_btn)
-        btns.addWidget(upd_btn)
-        btns.addWidget(del_btn)
-        layout.addLayout(btns)
-        layout.addStretch()
-
-        form_scroll.setWidget(form_w)
-        vsplit.addWidget(form_scroll)
-        vsplit.setSizes([420, 280])
-
-        root.addWidget(vsplit, 1)
+        layout.addWidget(self._build_card_form())
         return w
 
-    def _build_civ_ui(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.addWidget(QLabel("文明:"))
+    def _build_card_form(self) -> QFrame:
+        form = QFrame()
+        form.setStyleSheet(
+            "QFrame#cardForm { border: 1px solid #444; border-radius: 4px; "
+            "background: #1e1e35; }"
+        )
+        form.setObjectName("cardForm")
+        g = QGridLayout(form)
+        g.setContentsMargins(8, 6, 8, 6)
+        g.setHorizontalSpacing(6)
+        g.setVerticalSpacing(4)
+
+        # Row 0: name
+        g.addWidget(QLabel("カード名:"), 0, 0)
+        self._f_name = QLineEdit()
+        g.addWidget(self._f_name, 0, 1, 1, 3)
+
+        # Row 1: image
+        g.addWidget(QLabel("画像:"), 1, 0)
+        self._f_img = QLineEdit()
+        self._f_img.textChanged.connect(self._update_form_preview)
+        g.addWidget(self._f_img, 1, 1, 1, 2)
+        browse_btn = QPushButton("...")
+        browse_btn.setFixedWidth(28)
+        browse_btn.clicked.connect(self._browse_image)
+        g.addWidget(browse_btn, 1, 3)
+
+        # Row 2: preview (left) + mana/type (right)
+        self._f_preview = QLabel()
+        self._f_preview.setFixedSize(LIB_THUMB_W, LIB_THUMB_H)
+        self._f_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._f_preview.setStyleSheet("background: #333; border: 1px solid #555;")
+        g.addWidget(self._f_preview, 2, 0, 3, 1)
+
+        mana_row = QHBoxLayout()
+        mana_row.addWidget(QLabel("マナ:"))
+        self._f_mana = QSpinBox()
+        self._f_mana.setRange(0, 15)
+        self._f_mana.setFixedWidth(55)
+        mana_row.addWidget(self._f_mana)
+        mana_row.addStretch()
+        g.addLayout(mana_row, 2, 1, 1, 3)
+
+        # Row 3: civilizations
+        civ_row = QHBoxLayout()
+        civ_row.addWidget(QLabel("文明:"))
+        self._f_civ_checks: dict[str, QCheckBox] = {}
         for civ in CIVILIZATIONS:
             cb = QCheckBox(civ)
-            cb.setStyleSheet(f"QCheckBox {{ color: {CIV_COLORS[civ]}; }}")
-            cb.stateChanged.connect(self._on_civ_changed)
-            self._civ_checks[civ] = cb
-            row.addWidget(cb)
-        colorless_cb = QCheckBox("無色")
-        colorless_cb.setStyleSheet(f"QCheckBox {{ color: {CIV_COLORS['無色']}; }}")
-        colorless_cb.stateChanged.connect(self._on_civ_changed)
-        self._civ_checks["無色"] = colorless_cb
-        row.addWidget(colorless_cb)
-        self._rainbow_label = QLabel("レインボー")
-        self._rainbow_label.setStyleSheet(
-            "color: white; font-weight: bold; border: 1px solid #888; padding: 1px 4px; border-radius: 3px;"
-        )
-        self._rainbow_label.setVisible(False)
-        row.addWidget(self._rainbow_label)
-        row.addStretch()
-        return row
+            color = CIV_COLORS.get(civ, "#aaa")
+            cb.setStyleSheet(f"color: {color}; border: none;")
+            self._f_civ_checks[civ] = cb
+            civ_row.addWidget(cb)
+        g.addLayout(civ_row, 3, 1, 1, 3)
+
+        # Row 4: card type
+        type_row = QHBoxLayout()
+        type_row.addWidget(QLabel("タイプ:"))
+        self._f_type = QComboBox()
+        self._f_type.addItem("")
+        for t in CARD_TYPES:
+            self._f_type.addItem(t)
+        type_row.addWidget(self._f_type)
+        type_row.addStretch()
+        g.addLayout(type_row, 4, 1, 1, 3)
+
+        # Row 5: action buttons
+        btn_row = QHBoxLayout()
+        clear_btn = QPushButton("新規")
+        clear_btn.setToolTip("フォームをクリアして新規入力モードにする")
+        clear_btn.clicked.connect(self._clear_card_form)
+        btn_row.addWidget(clear_btn)
+
+        self._f_save_btn = QPushButton("登録")
+        self._f_save_btn.clicked.connect(self._save_card_form)
+        btn_row.addWidget(self._f_save_btn)
+
+        self._f_delete_btn = QPushButton("削除")
+        self._f_delete_btn.clicked.connect(self._delete_card)
+        self._f_delete_btn.setEnabled(False)
+        btn_row.addWidget(self._f_delete_btn)
+
+        g.addLayout(btn_row, 5, 0, 1, 4)
+
+        return form
 
     # ---- Panel 3: Deck editor ----
 
@@ -672,10 +722,9 @@ class DeckManagerDialog(QDialog):
         name_row.addWidget(self.count_label)
         layout.addLayout(name_row)
 
-        layout.addWidget(QLabel("デッキ内容  ← カードをドロップして追加"))
+        layout.addWidget(QLabel("デッキ内容（ここへドロップ）"))
 
-        self.deck_card_grid = _DeckCardGrid()
-        self.deck_card_grid.card_dropped.connect(self._on_card_dropped)
+        self.deck_card_grid = _DeckCardGrid(on_drop=self._on_library_drop)
         layout.addWidget(self.deck_card_grid)
 
         count_ctrl = QHBoxLayout()
@@ -706,35 +755,6 @@ class DeckManagerDialog(QDialog):
         line.setFrameShape(QFrame.Shape.HLine)
         line.setStyleSheet("color: #555;")
         return line
-
-    # -----------------------------------------------------------------------
-    # Civilization helpers
-    # -----------------------------------------------------------------------
-
-    def _on_civ_changed(self):
-        sender = self.sender()
-        colorless_cb = self._civ_checks["無色"]
-        color_cbs = [self._civ_checks[c] for c in CIVILIZATIONS]
-        if sender is colorless_cb and colorless_cb.isChecked():
-            for cb in color_cbs:
-                cb.blockSignals(True)
-                cb.setChecked(False)
-                cb.blockSignals(False)
-        elif sender in color_cbs and sender.isChecked():
-            colorless_cb.blockSignals(True)
-            colorless_cb.setChecked(False)
-            colorless_cb.blockSignals(False)
-        self._rainbow_label.setVisible(_is_rainbow(self._get_selected_civs()))
-
-    def _get_selected_civs(self) -> list[str]:
-        return [civ for civ in (CIVILIZATIONS + ["無色"]) if self._civ_checks[civ].isChecked()]
-
-    def _set_civs(self, civs: list[str]):
-        for civ, cb in self._civ_checks.items():
-            cb.blockSignals(True)
-            cb.setChecked(civ in civs)
-            cb.blockSignals(False)
-        self._rainbow_label.setVisible(_is_rainbow(civs))
 
     # -----------------------------------------------------------------------
     # Deck list
@@ -782,97 +802,143 @@ class DeckManagerDialog(QDialog):
             self.current_deck.name = text
 
     # -----------------------------------------------------------------------
-    # Library
+    # Card form (inline)
     # -----------------------------------------------------------------------
 
-    def _refresh_library(self):
-        self.lib_grid.refresh(self.library.cards)
+    def _on_library_card_selected(self, card: LibraryCard | None):
+        if card is None:
+            self._clear_card_form()
+            return
+        self._editing_card_id = card.id
+        self._f_name.setText(card.name)
+        self._f_img.setText(card.image_path)
+        self._f_mana.setValue(card.mana)
+        for civ, cb in self._f_civ_checks.items():
+            cb.setChecked(civ in card.civilizations)
+        idx = self._f_type.findText(card.card_type)
+        self._f_type.setCurrentIndex(idx if idx >= 0 else 0)
+        self._f_save_btn.setText("更新")
+        self._f_delete_btn.setEnabled(True)
 
-    def _on_search(self, text: str):
-        self.lib_grid.filter(text)
+    def _clear_card_form(self):
+        self._editing_card_id = None
+        self._f_name.clear()
+        self._f_img.clear()
+        self._f_mana.setValue(0)
+        for cb in self._f_civ_checks.values():
+            cb.setChecked(False)
+        self._f_type.setCurrentIndex(0)
+        self._f_preview.setPixmap(QPixmap())
+        self._f_preview.setStyleSheet("background: #333; border: 1px solid #555;")
+        self._f_save_btn.setText("登録")
+        self._f_delete_btn.setEnabled(False)
+        self.library_grid.clear_selection()
 
-    def _on_lib_card_selected(self, card: LibraryCard):
-        self._selected_lib_card = card
-        self.lib_grid.set_selected(card.id)
-        self.lib_name_edit.setText(card.name)
-        self.lib_mana_spin.setValue(card.mana)
-        idx = self.lib_type_combo.findData(card.card_type)
-        self.lib_type_combo.setCurrentIndex(idx if idx >= 0 else 0)
-        self._set_civs(card.civilizations)
-        self.lib_img_path_label.setText(os.path.basename(card.image_path))
-        self._lib_img_path = card.image_path
-        pix = QPixmap(card.image_path)
+    def _update_form_preview(self, path: str):
+        pix = QPixmap(path)
         if not pix.isNull():
-            pix = pix.scaled(EDIT_THUMB_W, EDIT_THUMB_H,
-                             Qt.AspectRatioMode.IgnoreAspectRatio,
-                             Qt.TransformationMode.SmoothTransformation)
-            self.lib_img_label.setPixmap(pix)
+            pix = pix.scaled(
+                LIB_THUMB_W, LIB_THUMB_H,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            self._f_preview.setPixmap(pix)
+            self._f_preview.setStyleSheet("")
         else:
-            self.lib_img_label.clear()
+            self._f_preview.setPixmap(QPixmap())
+            self._f_preview.setStyleSheet("background: #333; border: 1px solid #555;")
 
-    def _select_lib_image(self):
+    def _browse_image(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "カード画像を選択", "",
-            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.gif)"
+            self, "画像を選択", "",
+            "Images (*.png *.jpg *.jpeg *.gif *.bmp *.webp)"
         )
         if path:
-            self._lib_img_path = path
-            self.lib_img_path_label.setText(os.path.basename(path))
-            pix = QPixmap(path)
-            if not pix.isNull():
-                pix = pix.scaled(EDIT_THUMB_W, EDIT_THUMB_H,
-                                 Qt.AspectRatioMode.IgnoreAspectRatio,
-                                 Qt.TransformationMode.SmoothTransformation)
-                self.lib_img_label.setPixmap(pix)
-            else:
-                self.lib_img_label.clear()
+            self._f_img.setText(path)
 
-    def _add_lib_card(self):
-        name = self.lib_name_edit.text().strip()
+    def _save_card_form(self):
+        name = self._f_name.text().strip()
         if not name:
             QMessageBox.warning(self, "エラー", "カード名を入力してください")
             return
-        if not self._lib_img_path:
-            QMessageBox.warning(self, "エラー", "画像を選択してください")
-            return
+        civs = [civ for civ, cb in self._f_civ_checks.items() if cb.isChecked()]
         card = LibraryCard(
             name=name,
-            image_path=self._lib_img_path,
-            mana=self.lib_mana_spin.value(),
-            civilizations=self._get_selected_civs(),
-            card_type=self.lib_type_combo.currentData(),
+            image_path=self._f_img.text().strip(),
+            mana=self._f_mana.value(),
+            civilizations=civs,
+            card_type=self._f_type.currentText(),
+            id=self._editing_card_id or str(uuid.uuid4()),
         )
-        self.library.add_card(card)
-        self.library.save()
+        if self._editing_card_id:
+            for i, c in enumerate(self._library.cards):
+                if c.id == self._editing_card_id:
+                    self._library.cards[i] = card
+                    break
+        else:
+            self._library.add_card(card)
+
+        self._library.save()
+        self._editing_card_id = card.id
+        self._f_save_btn.setText("更新")
+        self._f_delete_btn.setEnabled(True)
         self._refresh_library()
 
-    def _update_lib_card(self):
-        if not self._selected_lib_card:
-            QMessageBox.warning(self, "エラー", "カードを選択してください")
+    def _delete_card(self):
+        if not self._editing_card_id:
             return
-        self._selected_lib_card.name = self.lib_name_edit.text().strip()
-        self._selected_lib_card.mana = self.lib_mana_spin.value()
-        self._selected_lib_card.card_type = self.lib_type_combo.currentData()
-        self._selected_lib_card.civilizations = self._get_selected_civs()
-        if self._lib_img_path:
-            self._selected_lib_card.image_path = self._lib_img_path
-        self.library.save()
-        self._refresh_library()
-
-    def _delete_lib_card(self):
-        if not self._selected_lib_card:
-            QMessageBox.warning(self, "エラー", "カードを選択してください")
+        card = next((c for c in self._library.cards if c.id == self._editing_card_id), None)
+        if card is None:
             return
-        if (QMessageBox.question(
-                self, "確認",
-                f"「{self._selected_lib_card.name}」をライブラリから削除しますか？")
+        if (QMessageBox.question(self, "確認", f"「{card.name}」を削除しますか？")
                 != QMessageBox.StandardButton.Yes):
             return
-        self.library.remove_card(self._selected_lib_card.id)
-        self.library.save()
-        self._selected_lib_card = None
-        self.lib_grid.set_selected(None)
+        self._library.remove_card(self._editing_card_id)
+        self._library.save()
+        self._clear_card_form()
         self._refresh_library()
+
+    # -----------------------------------------------------------------------
+    # Library refresh
+    # -----------------------------------------------------------------------
+
+    def _refresh_library(self):
+        self._lib_count_label.setText(f"{len(self._library.cards)} 枚")
+        self.library_grid.load_library(self._library)
+
+    # -----------------------------------------------------------------------
+    # Drop handler: library → deck
+    # -----------------------------------------------------------------------
+
+    def _on_library_drop(self, card_id: str):
+        if not self.current_deck:
+            QMessageBox.warning(self, "エラー", "デッキを選択または新規作成してください")
+            return
+        lib_card = next((c for c in self._library.cards if c.id == card_id), None)
+        if lib_card is None:
+            return
+        existing = next((c for c in self.current_deck.cards if c.id == card_id), None)
+        if existing:
+            if existing.count >= 4:
+                QMessageBox.warning(self, "エラー", "同じカードは4枚までです")
+                return
+            if self.current_deck.total_count >= Deck.MAX_SIZE:
+                QMessageBox.warning(self, "エラー", "40枚を超えます")
+                return
+            existing.count += 1
+        else:
+            if self.current_deck.total_count >= Deck.MAX_SIZE:
+                QMessageBox.warning(self, "エラー", "40枚を超えます")
+                return
+            self.current_deck.cards.append(Card(
+                name=lib_card.name,
+                image_path=lib_card.image_path,
+                mana=lib_card.mana,
+                civilizations=lib_card.civilizations,
+                card_type=lib_card.card_type,
+                id=lib_card.id,
+            ))
+        self._refresh_deck_grid()
 
     # -----------------------------------------------------------------------
     # Deck editor
@@ -883,39 +949,13 @@ class DeckManagerDialog(QDialog):
         total = self.current_deck.total_count if self.current_deck else 0
         self.count_label.setText(f"{total} / 40")
 
-    def _on_card_dropped(self, data: dict):
-        if not self.current_deck:
-            QMessageBox.warning(self, "エラー", "先にデッキを選択または新規作成してください")
-            return
-        for c in self.current_deck.cards:
-            if c.id == data["id"]:
-                if self.current_deck.total_count >= Deck.MAX_SIZE:
-                    QMessageBox.warning(self, "エラー", "40枚を超えます")
-                    return
-                c.count += 1
-                self._refresh_deck_grid()
-                return
-        if self.current_deck.total_count >= Deck.MAX_SIZE:
-            QMessageBox.warning(self, "エラー", "40枚を超えます")
-            return
-        self.current_deck.cards.append(Card(
-            name=data["name"],
-            image_path=data["image_path"],
-            mana=data["mana"],
-            civilizations=data.get("civilizations", []),
-            card_type=data.get("card_type", ""),
-            count=1,
-            id=data["id"],
-        ))
-        self._refresh_deck_grid()
-
     def _get_selected_deck_card(self) -> Card | None:
         if not self.current_deck:
             return None
-        idx = self.deck_card_grid.get_selected_index()
-        if idx < 0 or idx >= len(self.current_deck.cards):
+        card_id = self.deck_card_grid.get_selected_card_id()
+        if not card_id:
             return None
-        return self.current_deck.cards[idx]
+        return next((c for c in self.current_deck.cards if c.id == card_id), None)
 
     def _inc_card(self):
         card = self._get_selected_deck_card()

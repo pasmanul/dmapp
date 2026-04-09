@@ -97,11 +97,10 @@ class HandWindow(QMainWindow):
         layout.addLayout(hand_header)
 
         self.hand_zone = ZoneWidget(ZoneType.HAND, "手札")
-        self.hand_zone.setMinimumHeight(130)
         layout.addWidget(self.hand_zone)
 
         # ── Deck card list ───────────────────────────────────────────
-        list_title = QLabel("デッキカード一覧  （ドラッグして各ゾーンに配置）")
+        list_title = QLabel("デッキカード一覧")
         list_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         list_title.setStyleSheet("color: #ddd; font-weight: bold;")
         layout.addWidget(list_title)
