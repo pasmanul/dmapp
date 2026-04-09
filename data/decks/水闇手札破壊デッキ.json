@@ -2,11 +2,16 @@
   "name": "水闇手札破壊デッキ",
   "cards": [
     {
-      "id": "4c4380d6-9da5-4245-ba3b-213f81b06c0b",
+      "id": "635a29ff-9789-4e77-b4db-219d6451ae39",
       "name": "龍后人形メアリー・ジェニー",
       "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/deckcard06.webp",
       "count": 4,
-      "mana": 5
+      "mana": 5,
+      "civilizations": [
+        "水",
+        "闇"
+      ],
+      "card_type": "クリーチャー"
     }
   ]
 }

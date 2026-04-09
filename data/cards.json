@@ -1,111 +1,18 @@
 {
   "cards": [
     {
-      "id": "43006a17-d8a9-4df9-8b7c-a48918bc6940",
-      "name": "♪なぜ離れ どこへ行くのか 君は今",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o011.webp",
-      "mana": 3,
-      "civilizations": [
-        "水"
-      ],
-      "card_type": "呪文"
-    },
-    {
-      "id": "481732df-ba4f-41de-a31e-7077363458eb",
-      "name": "コーライルの海幻",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o009.jpg",
-      "mana": 4,
-      "civilizations": [
-        "水"
-      ],
-      "card_type": "タマシード"
-    },
-    {
-      "id": "b1d8353c-1d6b-455d-b333-a7f8325fbbf3",
-      "name": "ゲラッチョの心絵",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o010.webp",
-      "mana": 2,
-      "civilizations": [
-        "光"
-      ],
-      "card_type": "タマシード"
-    },
-    {
-      "id": "0ebe2a94-5981-4720-9200-fe87b737ecee",
-      "name": "AQ NETWORK",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o008.jpg",
+      "id": "635a29ff-9789-4e77-b4db-219d6451ae39",
+      "name": "龍后人形メアリー・ジェニー",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/deckcard06.webp",
       "mana": 5,
       "civilizations": [
-        "水"
+        "水",
+        "闇"
       ],
       "card_type": "クリーチャー"
     },
     {
-      "id": "565fbd1e-58e0-4039-b23c-073f7700905a",
-      "name": "スロットンの心絵",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o007.jpg",
-      "mana": 5,
-      "civilizations": [
-        "光"
-      ],
-      "card_type": "タマシード"
-    },
-    {
-      "id": "f67e2990-b9cd-4427-9cad-c27ad33facc6",
-      "name": "ジョーカーズの心絵",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o006.jpg",
-      "mana": 8,
-      "civilizations": [
-        "光"
-      ],
-      "card_type": "タマシード"
-    },
-    {
-      "id": "67192e43-80a2-4221-b722-2e513be74919",
-      "name": "邪脳の魔法陣",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o005.jpg",
-      "mana": 5,
-      "civilizations": [
-        "水",
-        "光"
-      ],
-      "card_type": "タマシード"
-    },
-    {
-      "id": "306eb725-80c7-490f-bd15-29e288e6b058",
-      "name": "理想と平和の決断",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o004.jpg",
-      "mana": 4,
-      "civilizations": [
-        "水",
-        "光"
-      ],
-      "card_type": "呪文"
-    },
-    {
-      "id": "dc2d5581-8d49-4af7-969e-22af16c29d76",
-      "name": "MAX・ザ・ジョニー",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o003.jpg",
-      "mana": 6,
-      "civilizations": [
-        "水",
-        "光"
-      ],
-      "card_type": "S-MAX進化"
-    },
-    {
-      "id": "bd43e967-859b-4288-a5f4-1132e774d32f",
-      "name": "アルカディアス・モモキング",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o002F.jpg",
-      "mana": 6,
-      "civilizations": [
-        "火",
-        "光"
-      ],
-      "card_type": "スター進化"
-    },
-    {
-      "id": "4c6deda8-b9c0-463b-8c08-ec7470a542e1",
+      "id": "9dbeecff-7180-4f17-ae1e-83d1233fc96d",
       "name": "「正義星帝」 <ライオネル.Star>",
       "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/deckcard15.webp",
       "mana": 5,
@@ -115,15 +22,107 @@
       "card_type": "スター進化"
     },
     {
-      "id": "fff185d1-36ec-4925-b12e-c68dabc9fdb3",
-      "name": "龍后人形メアリー・ジェニー",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/deckcard06.webp",
+      "id": "2a6a36e8-c58a-425c-a9c6-ceec85fa630d",
+      "name": "アルカディアス・モモキング",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o002F.jpg",
+      "mana": 6,
+      "civilizations": [
+        "光",
+        "火"
+      ],
+      "card_type": "スター進化"
+    },
+    {
+      "id": "71d5be3a-778a-4751-83ef-983fe20ad25d",
+      "name": "MAX・ザ・ジョニー",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o003.jpg",
+      "mana": 6,
+      "civilizations": [
+        "光"
+      ],
+      "card_type": "S-MAX進化"
+    },
+    {
+      "id": "28c27fea-985d-424e-a54d-944683d88c5f",
+      "name": "理想と平和の決断",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o004.jpg",
+      "mana": 4,
+      "civilizations": [
+        "光",
+        "水"
+      ],
+      "card_type": "呪文"
+    },
+    {
+      "id": "dd056bf5-177f-4198-a133-e8b00e7bafaf",
+      "name": "邪脳の魔法陣",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o005.jpg",
       "mana": 5,
       "civilizations": [
-        "水",
+        "光",
         "闇"
       ],
+      "card_type": "タマシード"
+    },
+    {
+      "id": "a9d0ea37-55b6-49e5-a084-8840af49a43a",
+      "name": "ジョーカーズの心絵",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o006.jpg",
+      "mana": 8,
+      "civilizations": [
+        "光"
+      ],
+      "card_type": "タマシード"
+    },
+    {
+      "id": "febe7449-0a21-4873-a606-a846815d8006",
+      "name": "スロットンの心絵",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o007.jpg",
+      "mana": 5,
+      "civilizations": [
+        "光"
+      ],
+      "card_type": "タマシード"
+    },
+    {
+      "id": "83dc8f79-61c4-4b82-a76b-30201a466125",
+      "name": "AQ NETWORK",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o008.jpg",
+      "mana": 5,
+      "civilizations": [
+        "水"
+      ],
       "card_type": "クリーチャー"
+    },
+    {
+      "id": "a701591b-f1ed-485f-b034-cd467b068e3a",
+      "name": "コーライルの海幻",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o009.jpg",
+      "mana": 4,
+      "civilizations": [
+        "水"
+      ],
+      "card_type": "タマシード"
+    },
+    {
+      "id": "2a786e7b-bb95-40c8-85c8-4721a10252fa",
+      "name": "ゲラッチョの心絵",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o010.webp",
+      "mana": 2,
+      "civilizations": [
+        "光"
+      ],
+      "card_type": "タマシード"
+    },
+    {
+      "id": "e892990c-f00a-43af-9080-2143052ed803",
+      "name": "♪なぜ離れ どこへ行くのか 君は今",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o011.webp",
+      "mana": 3,
+      "civilizations": [
+        "水"
+      ],
+      "card_type": "呪文"
     }
   ]
 }
