@@ -7,7 +7,7 @@ from typing import List
 
 LIBRARY_PATH = "data/cards.json"
 
-CIVILIZATIONS = ["火", "水", "自然", "光", "闇"]
+CIVILIZATIONS = ["無色", "光", "水", "闇", "火", "自然"]
 CIV_COLORS = {
     "火":   "#ff4444",
     "水":   "#4488ff",
@@ -18,16 +18,16 @@ CIV_COLORS = {
 }
 
 CARD_TYPES = [
+    "タマシード",
     "クリーチャー",
+    "ネオ進化",
+    "Gネオ進化",
+    "スター進化",
+    "S-MAX進化",
+    "ツインパクト",
     "呪文",
     "クロスギア",
     "D2フィールド",
-    "タマシード",
-    "スター進化",
-    "S-MAX進化",
-    "ネオ進化",
-    "Gネオ進化",
-    "ツインパクト",
 ]
 CARD_TYPE_COLORS = {
     "クリーチャー": "#ff8844",

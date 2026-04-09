@@ -1,18 +1,19 @@
 import json
 from typing import List, Optional, Tuple
 
-from PyQt6.QtCore import QMimeData, QPoint, QRect, Qt
+from PyQt6.QtCore import QMimeData, QPoint, QRect, Qt, QTimer
 from PyQt6.QtGui import (
     QBrush,
     QColor,
     QDrag,
     QFont,
+    QIcon,
     QPainter,
     QPen,
     QPixmap,
     QTransform,
 )
-from PyQt6.QtWidgets import QFrame, QMenu
+from PyQt6.QtWidgets import QFrame, QMenu, QMessageBox
 
 from models.card import Card
 from models.game_state import GameCard, GameState, ZoneType
@@ -23,6 +24,21 @@ from .signals import game_signals
 
 _card_back_cache: Optional[QPixmap] = None
 _card_back_tapped_cache: Optional[QPixmap] = None
+
+_MARKER_COLORS = {
+    "red":    QColor(220, 60,  60),
+    "blue":   QColor(60,  130, 220),
+    "yellow": QColor(220, 200, 0),
+    "green":  QColor(60,  190, 60),
+    "purple": QColor(170, 70,  210),
+}
+_MARKER_LABELS = {
+    "red":    "赤",
+    "blue":   "青",
+    "yellow": "黄",
+    "green":  "緑",
+    "purple": "紫",
+}
 
 
 def _make_card_back() -> QPixmap:
@@ -99,6 +115,9 @@ class ZoneWidget(QFrame):
         self._pix_cache: dict = {}  # (card_id, face_down) -> QPixmap
         self._drag_start: Optional[QPoint] = None
         self._hover_idx: int = -1  # マウスオーバー中のカードインデックス
+        self._flash_alpha: int = 0  # シャッフルアニメーション用フラッシュ透明度
+        self._flash_timer = QTimer(self)
+        self._flash_timer.timeout.connect(self._flash_tick)
 
         self.setAcceptDrops(True)
         self.setMouseTracking(True)
@@ -212,7 +231,8 @@ class ZoneWidget(QFrame):
     # ------------------------------------------------------------------
 
     def _get_pixmap(self, gc: GameCard) -> QPixmap:
-        face_down = gc.face_down or self.mask_cards
+        # mask_cards=True でも revealed=True なら表向きにする
+        face_down = gc.face_down or (self.mask_cards and not gc.revealed)
         key = (gc.card.id, face_down)
         if key not in self._pix_cache:
             if face_down:
@@ -235,6 +255,17 @@ class ZoneWidget(QFrame):
     def _on_zones_updated(self):
         self._positions_dirty = True
         self.update()
+
+    def start_shuffle_anim(self):
+        """山札シャッフル時の白フラッシュアニメーションを開始する。"""
+        self._flash_alpha = 220
+        self._flash_timer.start(25)
+
+    def _flash_tick(self):
+        self._flash_alpha = max(0, self._flash_alpha - 14)
+        self.update()
+        if self._flash_alpha == 0:
+            self._flash_timer.stop()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -272,9 +303,15 @@ class ZoneWidget(QFrame):
             painter.setFont(QFont("Arial", 13, QFont.Weight.Bold))
             painter.setPen(QColor(255, 255, 0))
             painter.drawText(count_rect, Qt.AlignmentFlag.AlignCenter, str(n))
+            # シャッフルフラッシュ
+            if self._flash_alpha > 0:
+                painter.fillRect(QRect(x, y, self._cw, self._ch),
+                                 QColor(255, 255, 255, self._flash_alpha))
             return
 
         for x, y, i in self._card_positions:
+            if i >= len(zone.cards):
+                continue
             gc = zone.cards[i]
             pix = self._get_pixmap(gc)
 
@@ -316,6 +353,20 @@ class ZoneWidget(QFrame):
                 painter.setFont(QFont("Arial", 8, QFont.Weight.Bold))
                 painter.setPen(QColor(255, 255, 255))
                 painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, str(stack_count + 1))
+
+            # カラーマーク（右上に色付き円）
+            if gc.marker and gc.marker in _MARKER_COLORS:
+                r = 7
+                if gc.tapped:
+                    oy = (self._ch - self._cw) // 2
+                    mx = x + self._ch - r - 3
+                    my = y + oy + r + 3
+                else:
+                    mx = x + self._cw - r - 3
+                    my = y + r + 3
+                painter.setBrush(QBrush(_MARKER_COLORS[gc.marker]))
+                painter.setPen(QPen(QColor(255, 255, 255), 1))
+                painter.drawEllipse(QPoint(mx, my), r, r)
 
         if self._is_overlapping():
             painter.setFont(QFont("Arial", 7))
@@ -438,6 +489,8 @@ class ZoneWidget(QFrame):
     # Drag
     # ------------------------------------------------------------------
 
+    _HIDDEN_ZONES = (ZoneType.HAND, ZoneType.SHIELD, ZoneType.DECK)
+
     def _start_drag(self, gc: GameCard, idx: int):
         drag = QDrag(self)
         mime = QMimeData()
@@ -450,7 +503,10 @@ class ZoneWidget(QFrame):
         })
         mime.setData(MIME_TYPE, payload.encode())
         drag.setMimeData(mime)
-        drag.setPixmap(self._get_pixmap(gc))
+        # 非公開ゾーン（手札・シールド・山札）またはマスク中のゾーンからのドラッグは
+        # カーソルに裏面を表示し、画面共有時に内容が漏れないようにする
+        use_back = gc.face_down or self.mask_cards or (self.zone_type in self._HIDDEN_ZONES)
+        drag.setPixmap(_make_card_back() if use_back else self._get_pixmap(gc))
         drag.setHotSpot(QPoint(self._cw // 2, self._ch // 2))
         drag.exec(Qt.DropAction.MoveAction)
 
@@ -468,7 +524,38 @@ class ZoneWidget(QFrame):
         raw = event.mimeData().data(MIME_TYPE)
         data = json.loads(bytes(raw).decode())
         drop_pos = event.position().toPoint()
-        GameState.get_instance().push_snapshot()
+        gs = GameState.get_instance()
+        src = data.get("source_zone", "")
+
+        # 山札へのドロップはダイアログで一番上/下を選ぶ。
+        # QMessageBox をドラッグイベント中に開くと Qt がクラッシュするため、
+        # カードを先に抜き取り、QTimer でイベント完了後にダイアログを表示する。
+        if self.zone_type == ZoneType.DECK and src != "deck_list":
+            try:
+                src_type = ZoneType(src)
+            except ValueError:
+                return
+            gs.push_snapshot()
+            card_id = data.get("card_id")
+            src_cards = gs.zones[src_type].cards
+            idx = next((i for i, c in enumerate(src_cards) if c.card.id == card_id),
+                       data.get("card_index", -1))
+            gc = gs.zones[src_type].remove_card(idx)
+            if not gc:
+                return
+            all_cards = [gc] + gc.under_cards
+            gc.under_cards = []
+            for c in all_cards:
+                c.tapped = False
+                c.row = 0
+                c.face_down = False
+            event.acceptProposedAction()
+            self._invalidate_cache()
+            game_signals.zones_updated.emit()
+            QTimer.singleShot(0, lambda cards=all_cards: self._ask_deck_position(cards))
+            return
+
+        gs.push_snapshot()
         self._handle_drop(data, drop_pos)
         event.acceptProposedAction()
         self._invalidate_cache()
@@ -510,7 +597,12 @@ class ZoneWidget(QFrame):
             target_insert_idx = self._calc_insert_index(drop_pos, src_idx_pre)
 
         if src == "deck_list":
-            card = Card(name=data["card_name"], image_path=data["image_path"], id=data["card_id"])
+            card = Card(
+                name=data["card_name"], image_path=data["image_path"], id=data["card_id"],
+                mana=data.get("mana", 0),
+                civilizations=data.get("civilizations", []),
+                card_type=data.get("card_type", ""),
+            )
             gc = GameCard(card)
         else:
             try:
@@ -552,8 +644,27 @@ class ZoneWidget(QFrame):
             gs.zones[self.zone_type].insert_card(target_insert_idx, gc)
             return
 
+        # ゾーン移動時に公開フラグをリセット
+        gc.revealed = False
+
+        # バトルゾーン以外への移動時、進化スタックを分離して個別に追加
+        if self.zone_type != ZoneType.BATTLE and gc.under_cards:
+            all_cards = [gc] + gc.under_cards
+            gc.under_cards = []
+            for c in all_cards:
+                c.tapped = False
+                c.row = 0
+                if self.zone_type == ZoneType.SHIELD:
+                    c.face_down = True
+                elif self.zone_type == ZoneType.DECK:
+                    c.face_down = False
+                gs.zones[self.zone_type].add_card(c)
+            return
+
         if self.zone_type == ZoneType.SHIELD:
             gc.face_down = True
+        elif self.zone_type == ZoneType.DECK:
+            gc.face_down = False
         gs.zones[self.zone_type].add_card(gc)
 
     # ------------------------------------------------------------------
@@ -568,6 +679,27 @@ class ZoneWidget(QFrame):
         menu.addAction(face_text, lambda: self._toggle_face(gc))
         if not gc.face_down and not self.mask_cards:
             menu.addAction("拡大表示", lambda: self._show_zoom(gc))
+
+        # マークサブメニュー
+        mark_menu = menu.addMenu("マーク")
+        mark_menu.addAction("なし", lambda: self._set_marker(gc, None))
+        mark_menu.addSeparator()
+        for key, label in _MARKER_LABELS.items():
+            action = mark_menu.addAction(label, lambda k=key: self._set_marker(gc, k))
+            pix = QPixmap(14, 14)
+            pix.fill(Qt.GlobalColor.transparent)
+            p = QPainter(pix)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
+            p.setBrush(QBrush(_MARKER_COLORS[key]))
+            p.setPen(QPen(QColor(200, 200, 200), 1))
+            p.drawEllipse(1, 1, 12, 12)
+            p.end()
+            action.setIcon(QIcon(pix))
+
+        if self.zone_type == ZoneType.HAND:
+            menu.addSeparator()
+            reveal_text = "非公開にする" if gc.revealed else "公開する"
+            menu.addAction(reveal_text, lambda: self._toggle_revealed(gc))
         if self.zone_type == ZoneType.BATTLE:
             menu.addSeparator()
             if gc.row == 0:
@@ -579,8 +711,6 @@ class ZoneWidget(QFrame):
             menu.addAction(f"スタックを確認（{len(gc.under_cards) + 1}枚）",
                            lambda: self._show_stack(gc))
             menu.addAction("一番下を切り離す", lambda: self._pop_stack(gc, idx))
-        menu.addSeparator()
-        menu.addAction("このゾーンから削除", lambda: self._remove_card(idx))
         menu.exec(pos)
 
     def _move_row(self, gc: GameCard, row: int):
@@ -620,9 +750,34 @@ class ZoneWidget(QFrame):
         self._invalidate_cache()
         game_signals.zones_updated.emit()
 
-    def _remove_card(self, idx: int):
+    def _toggle_revealed(self, gc: GameCard):
         GameState.get_instance().push_snapshot()
-        GameState.get_instance().zones[self.zone_type].remove_card(idx)
+        gc.revealed = not gc.revealed
+        self._invalidate_cache()
+        game_signals.zones_updated.emit()
+
+    def _set_marker(self, gc: GameCard, color: Optional[str]):
+        GameState.get_instance().push_snapshot()
+        gc.marker = color
+        game_signals.zones_updated.emit()
+
+    def _ask_deck_position(self, cards):
+        """ドラッグ完了後に呼ばれる。一番上/下を選択して山札に挿入する。"""
+        box = QMessageBox(self)
+        box.setWindowTitle("山札に追加")
+        box.setText("どこに追加しますか？")
+        top_btn = box.addButton("一番上", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("一番下", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        deck = GameState.get_instance().zones[ZoneType.DECK]
+        if box.clickedButton() is top_btn:
+            # 末尾 = 一番上。先頭カードが一番上になるよう逆順で追加
+            for c in reversed(cards):
+                deck.add_card(c)
+        else:
+            # 先頭 = 一番下。先頭カードが一番下になるよう逆順でinsert
+            for c in reversed(cards):
+                deck.insert_card(0, c)
         self._invalidate_cache()
         game_signals.zones_updated.emit()
 

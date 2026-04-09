@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -16,8 +15,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models.game_state import GameState, GameCard, ZoneType, make_dummy_card
-from models.card import Card
+from models.game_state import GameState, ZoneType
 
 from .constants import BATTLE_CARD_SCALE, CARD_H
 from .deck_manager import DeckManagerDialog
@@ -130,7 +128,7 @@ class BoardWindow(QMainWindow):
 
         sort_btn = None
         if zone_type == ZoneType.BATTLE:
-            sort_btn = QPushButton("名前順", zone_widget)
+            sort_btn = QPushButton("ソート", zone_widget)
             sort_btn.setFixedSize(48, 18)
             sort_btn.setStyleSheet(btn_style)
             sort_btn.raise_()
@@ -155,10 +153,29 @@ class BoardWindow(QMainWindow):
         return super().eventFilter(obj, event)
 
     def _sort_battle_zone(self):
+        _CIV_ORDER = ["無色", "光", "水", "闇", "火", "自然"]
+        _TYPE_ORDER = [
+            "タマシード", "クリーチャー", "ネオ進化", "Gネオ進化", "スター進化", "S-MAX進化",
+            "ツインパクト", "呪文", "クロスギア", "D2フィールド",
+        ]
+
+        def _sort_key(gc):
+            c = gc.card
+            civs = c.civilizations or []
+            n = len(civs)
+            if n == 0:
+                civ_rank = 0                       # 無色
+            elif n == 1:
+                civ_rank = _CIV_ORDER.index(civs[0]) + 1 if civs[0] in _CIV_ORDER else len(_CIV_ORDER) + 1
+            else:
+                civ_rank = len(_CIV_ORDER) + n    # 多色：色数が少ない順
+            type_rank = _TYPE_ORDER.index(c.card_type) if c.card_type in _TYPE_ORDER else len(_TYPE_ORDER)
+            return (c.mana, type_rank, civ_rank, c.name)
+
         gs = GameState.get_instance()
         gs.push_snapshot()
-        row0 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 0], key=lambda gc: gc.card.name)
-        row1 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 1], key=lambda gc: gc.card.name)
+        row0 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 0], key=_sort_key)
+        row1 = sorted([gc for gc in gs.zones[ZoneType.BATTLE].cards if gc.row == 1], key=_sort_key)
         gs.zones[ZoneType.BATTLE].cards[:] = row0 + row1
         game_signals.zones_updated.emit()
 
@@ -179,48 +196,24 @@ class BoardWindow(QMainWindow):
         layout.addWidget(self.deck_zone)
 
         # ── Controls ──────────────────────────────────────────────────
+        btn_style = (
+            "QPushButton {{ background: {bg}; color: #eee; border: 1px solid #555; border-radius: 3px; }}"
+            "QPushButton:hover {{ background: {hover}; }}"
+        )
         ctrl = QHBoxLayout()
         ctrl.setSpacing(4)
 
         draw_btn = QPushButton("ドロー")
         draw_btn.setFixedHeight(26)
-        draw_btn.setStyleSheet(
-            "QPushButton { background: #2a5a2a; color: #eee; border: 1px solid #555; border-radius: 3px; }"
-            "QPushButton:hover { background: #3a7a3a; }"
-        )
+        draw_btn.setStyleSheet(btn_style.format(bg="#2a5a2a", hover="#3a7a3a"))
         draw_btn.clicked.connect(self._draw_card)
         ctrl.addWidget(draw_btn)
 
-        add_btn = QPushButton("+1")
-        add_btn.setFixedHeight(26)
-        add_btn.setFixedWidth(60)
-        add_btn.setStyleSheet(
-            "QPushButton { background: #2a4a6a; color: #eee; border: 1px solid #555; border-radius: 3px; }"
-            "QPushButton:hover { background: #3a5a8a; }"
-        )
-        add_btn.clicked.connect(self._add_deck_card)
-        ctrl.addWidget(add_btn)
-
-        self._deck_input = QLineEdit()
-        self._deck_input.setFixedHeight(26)
-        self._deck_input.setFixedWidth(40)
-        self._deck_input.setMaxLength(2)
-        self._deck_input.setPlaceholderText("枚")
-        self._deck_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._deck_input.setStyleSheet(
-            "QLineEdit { background: #2a2a4a; color: #eee; border: 1px solid #555; border-radius: 3px; }"
-        )
-        self._deck_input.returnPressed.connect(self._set_deck_count)
-        ctrl.addWidget(self._deck_input)
-
-        set_btn = QPushButton("セット")
-        set_btn.setFixedHeight(26)
-        set_btn.setStyleSheet(
-            "QPushButton { background: #3a3a6a; color: #eee; border: 1px solid #555; border-radius: 3px; }"
-            "QPushButton:hover { background: #4a4a8a; }"
-        )
-        set_btn.clicked.connect(self._set_deck_count)
-        ctrl.addWidget(set_btn)
+        shuffle_btn = QPushButton("シャッフル")
+        shuffle_btn.setFixedHeight(26)
+        shuffle_btn.setStyleSheet(btn_style.format(bg="#5a3a2a", hover="#7a4a3a"))
+        shuffle_btn.clicked.connect(self._shuffle_deck)
+        ctrl.addWidget(shuffle_btn)
 
         layout.addLayout(ctrl)
         return panel
@@ -231,41 +224,32 @@ class BoardWindow(QMainWindow):
         if len(deck) == 0:
             return
         gs.push_snapshot()
-        deck.remove_card(len(deck) - 1)
+        gc = deck.remove_card(len(deck) - 1)  # 山札の一番上（末尾）
+        if gc:
+            gc.face_down = False
+            gs.zones[ZoneType.HAND].add_card(gc)
         game_signals.zones_updated.emit()
 
-    def _add_deck_card(self):
+    def _shuffle_deck(self):
+        import random
         gs = GameState.get_instance()
-        gs.push_snapshot()
-        gs.zones[ZoneType.DECK].add_card(make_dummy_card())
-        game_signals.zones_updated.emit()
-
-    def _set_deck_count(self):
-        text = self._deck_input.text().strip()
-        try:
-            target = int(text)
-        except ValueError:
-            return
-        if target < 0:
-            return
-        gs = GameState.get_instance()
-        gs.push_snapshot()
         deck = gs.zones[ZoneType.DECK]
-        current = len(deck)
-        if target > current:
-            for _ in range(target - current):
-                deck.add_card(make_dummy_card())
-        elif target < current:
-            for _ in range(current - target):
-                deck.remove_card(len(deck) - 1)
-        self._deck_input.clear()
+        if len(deck) == 0:
+            return
+        gs.push_snapshot()
+        random.shuffle(deck.cards)
         game_signals.zones_updated.emit()
+        self.deck_zone.start_shuffle_anim()
 
     def _initialize_field(self):
-        if QMessageBox.question(self, "確認", "フィールドを初期状態（シールド5枚・山札30枚）にリセットしますか？") \
-                != QMessageBox.StandardButton.Yes:
+        gs = GameState.get_instance()
+        if gs.current_deck is None:
+            msg = "デッキが読み込まれていません。全ゾーンを空にしますか？"
+        else:
+            msg = f"「{gs.current_deck.name}」でゲームを開始しますか？\nデッキをシャッフルし、シールド5枚・手札5枚を配ります。"
+        if QMessageBox.question(self, "確認", msg) != QMessageBox.StandardButton.Yes:
             return
-        GameState.get_instance().initialize_field()
+        gs.initialize_field()
         game_signals.zones_updated.emit()
 
     def _reset_field(self):

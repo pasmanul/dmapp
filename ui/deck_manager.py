@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QSplitter,
     QVBoxLayout,
@@ -34,7 +35,8 @@ from models.deck import Deck
 
 DECKS_DIR = "data/decks"
 LIBRARY_MIME = "application/x-dmapp-library-card"
-LIB_THUMB_W, LIB_THUMB_H = 80, 112
+LIB_THUMB_W, LIB_THUMB_H = 110, 154
+DECK_THUMB_W, DECK_THUMB_H = 110, 154
 EDIT_THUMB_W, EDIT_THUMB_H = 52, 73
 
 
@@ -194,16 +196,24 @@ class _LibraryCardEntry(QFrame):
 
 class _CardLibraryGrid(QWidget):
     card_selected = pyqtSignal(object)  # LibraryCard
-    COLS = 4
+    _TILE_W = LIB_THUMB_W + 8 + 6  # thumb + padding + spacing
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setStyleSheet("QScrollArea { background: #1a1a1a; }")
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setStyleSheet("""
+            QScrollArea { background: #1a1a1a; border: none; }
+            QScrollBar:vertical { background: #1a1a1a; width: 10px; border: none; }
+            QScrollBar::handle:vertical { background: #555; border-radius: 5px; min-height: 20px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+        """)
+        self._scroll.viewport().setStyleSheet("background: #1a1a1a;")
 
         self._container = QWidget()
         self._container.setStyleSheet("background: #1a1a1a;")
@@ -219,6 +229,17 @@ class _CardLibraryGrid(QWidget):
         self._entries: list[_LibraryCardEntry] = []
         self._selected_id: str | None = None
         self._current_filter: str = ""
+        self._cols: int = 4
+
+    def _calc_cols(self) -> int:
+        return max(2, (self.width() - 12 - 10) // self._TILE_W)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        new_cols = self._calc_cols()
+        if new_cols != self._cols:
+            self._cols = new_cols
+            self._apply_filter(self._current_filter)
 
     def refresh(self, cards: list[LibraryCard]):
         self._all_cards = list(cards)
@@ -247,7 +268,7 @@ class _CardLibraryGrid(QWidget):
             if card.id == self._selected_id:
                 entry.set_selected(True)
             self._entries.append(entry)
-            self._grid.addWidget(entry, i // self.COLS, i % self.COLS)
+            self._grid.addWidget(entry, i // self._cols, i % self._cols)
 
     def set_selected(self, card_id: str | None):
         self._selected_id = card_id
@@ -274,22 +295,22 @@ class _DeckCardTile(QFrame):
         layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         thumb = QLabel()
-        thumb.setFixedSize(LIB_THUMB_W, LIB_THUMB_H)
+        thumb.setFixedSize(DECK_THUMB_W, DECK_THUMB_H)
         thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         thumb.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         pix = QPixmap(card.image_path)
         if not pix.isNull():
-            pix = pix.scaled(LIB_THUMB_W, LIB_THUMB_H,
+            pix = pix.scaled(DECK_THUMB_W, DECK_THUMB_H,
                              Qt.AspectRatioMode.IgnoreAspectRatio,
                              Qt.TransformationMode.SmoothTransformation)
         else:
-            pix = QPixmap(LIB_THUMB_W, LIB_THUMB_H)
+            pix = QPixmap(DECK_THUMB_W, DECK_THUMB_H)
             pix.fill(QColor(70, 70, 70))
         thumb.setPixmap(pix)
         layout.addWidget(thumb, 0, Qt.AlignmentFlag.AlignHCenter)
 
         name_lbl = QLabel(card.name)
-        name_lbl.setFont(QFont("Arial", 7))
+        name_lbl.setFont(QFont("Arial", 8))
         name_lbl.setStyleSheet("color: #ddd; border: none;")
         name_lbl.setWordWrap(True)
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -303,7 +324,7 @@ class _DeckCardTile(QFrame):
         if card.card_type:
             type_color = CARD_TYPE_COLORS.get(card.card_type, "#aaa")
             type_lbl = QLabel(card.card_type)
-            type_lbl.setFont(QFont("Arial", 7, QFont.Weight.Bold))
+            type_lbl.setFont(QFont("Arial", 8, QFont.Weight.Bold))
             type_lbl.setStyleSheet(f"color: {type_color}; border: none;")
             type_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             type_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -356,18 +377,26 @@ class _DeckCardTile(QFrame):
 
 class _DeckCardGrid(QWidget):
     card_dropped = pyqtSignal(object)   # dict from MIME
-    COLS = 4
+    _TILE_W = DECK_THUMB_W + 8 + 6  # thumb + padding + spacing
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
+        self.setStyleSheet("background: #1a1a1a;")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setStyleSheet("QScrollArea { background: #1a1a1a; }")
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setStyleSheet("""
+            QScrollArea { background: #1a1a1a; border: none; }
+            QScrollBar:vertical { background: #1a1a1a; width: 10px; border: none; }
+            QScrollBar::handle:vertical { background: #555; border-radius: 5px; min-height: 20px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+        """)
+        self._scroll.viewport().setStyleSheet("background: #1a1a1a;")
 
         self._container = QWidget()
         self._container.setStyleSheet("background: #1a1a1a;")
@@ -382,6 +411,18 @@ class _DeckCardGrid(QWidget):
 
         self._entries: list[_DeckCardTile] = []
         self._selected_index: int = -1
+        self._cols: int = 4
+        self._current_deck: Deck | None = None
+
+    def _calc_cols(self) -> int:
+        return max(2, (self.width() - 12 - 10) // self._TILE_W)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        new_cols = self._calc_cols()
+        if new_cols != self._cols:
+            self._cols = new_cols
+            self.refresh(self._current_deck)
 
     # ---- drop events (on outer widget and container) ----
 
@@ -408,6 +449,7 @@ class _DeckCardGrid(QWidget):
     # ---- grid management ----
 
     def refresh(self, deck: Deck | None):
+        self._current_deck = deck
         while self._grid.count():
             item = self._grid.takeAt(0)
             if item.widget():
@@ -420,7 +462,7 @@ class _DeckCardGrid(QWidget):
         for i, card in enumerate(deck.cards):
             tile = _DeckCardTile(card, i, on_click=self._on_tile_click)
             self._entries.append(tile)
-            self._grid.addWidget(tile, i // self.COLS, i % self.COLS)
+            self._grid.addWidget(tile, i // self._cols, i % self._cols)
 
     def _on_tile_click(self, index: int):
         self._selected_index = index
@@ -439,6 +481,18 @@ class DeckManagerDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("デッキ管理")
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, True)
+        self.setStyleSheet("""
+            QDialog, QWidget, QSplitter { background-color: #1a1a2e; color: #ddd; }
+            QLineEdit, QSpinBox, QComboBox { background: #2a2a4a; color: #ddd; border: 1px solid #555; }
+            QPushButton { background: #3a3a6a; color: #ddd; border: 1px solid #555; border-radius: 3px; padding: 2px 8px; }
+            QPushButton:hover { background: #4a4a8a; }
+            QListWidget { background: #2a2a4a; color: #ddd; border: 1px solid #555; }
+            QListWidget::item:selected { background: #4a4a8a; }
+            QScrollArea { background: #1a1a2e; border: none; }
+            QLabel { color: #ddd; }
+            QCheckBox { color: #ddd; }
+        """)
         self.resize(1150, 700)
         self.current_deck: Deck | None = None
         self.library = CardLibrary.get_instance()
@@ -485,17 +539,35 @@ class DeckManagerDialog(QDialog):
 
     def _build_library_panel(self) -> QWidget:
         w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.addWidget(QLabel("カードライブラリ"))
+        root = QVBoxLayout(w)
+        root.setContentsMargins(4, 4, 4, 4)
+        root.setSpacing(4)
+
+        root.addWidget(QLabel("カードライブラリ"))
 
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("カード名で検索...")
         self.search_edit.textChanged.connect(self._on_search)
-        layout.addWidget(self.search_edit)
+        root.addWidget(self.search_edit)
+
+        # 縦スプリッター: 上=グリッド, 下=編集フォーム
+        vsplit = QSplitter(Qt.Orientation.Vertical)
+        vsplit.setStyleSheet("QSplitter::handle:vertical { background: #3a3a5a; height: 4px; }")
 
         self.lib_grid = _CardLibraryGrid()
         self.lib_grid.card_selected.connect(self._on_lib_card_selected)
-        layout.addWidget(self.lib_grid)
+        vsplit.addWidget(self.lib_grid)
+
+        # 編集フォームをスクロールエリアに収める
+        form_scroll = QScrollArea()
+        form_scroll.setWidgetResizable(True)
+        form_scroll.setStyleSheet("QScrollArea { background: #1a1a2e; border: none; }")
+        form_scroll.viewport().setStyleSheet("background: #1a1a2e;")
+        form_w = QWidget()
+        form_w.setStyleSheet("background: #1a1a2e;")
+        layout = QVBoxLayout(form_w)
+        layout.setContentsMargins(0, 4, 0, 0)
+        layout.setSpacing(6)
 
         layout.addWidget(self._make_separator())
         layout.addWidget(QLabel("カード情報"))
@@ -553,6 +625,13 @@ class DeckManagerDialog(QDialog):
         btns.addWidget(upd_btn)
         btns.addWidget(del_btn)
         layout.addLayout(btns)
+        layout.addStretch()
+
+        form_scroll.setWidget(form_w)
+        vsplit.addWidget(form_scroll)
+        vsplit.setSizes([420, 280])
+
+        root.addWidget(vsplit, 1)
         return w
 
     def _build_civ_ui(self) -> QHBoxLayout:

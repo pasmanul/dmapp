@@ -1,17 +1,6 @@
 {
   "cards": [
     {
-      "id": "4c4380d6-9da5-4245-ba3b-213f81b06c0b",
-      "name": "龍后人形メアリー・ジェニー",
-      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/deckcard06.webp",
-      "mana": 5,
-      "civilizations": [
-        "水",
-        "闇"
-      ],
-      "card_type": "クリーチャー"
-    },
-    {
       "id": "43006a17-d8a9-4df9-8b7c-a48918bc6940",
       "name": "♪なぜ離れ どこへ行くのか 君は今",
       "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/dm26sd1-o011.webp",
@@ -124,6 +113,17 @@
         "光"
       ],
       "card_type": "スター進化"
+    },
+    {
+      "id": "fff185d1-36ec-4925-b12e-c68dabc9fdb3",
+      "name": "龍后人形メアリー・ジェニー",
+      "image_path": "D:/ユーザー/shoot/ドキュメント/Kiro/dmapp/data/cards/deckcard06.webp",
+      "mana": 5,
+      "civilizations": [
+        "水",
+        "闇"
+      ],
+      "card_type": "クリーチャー"
     }
   ]
 }

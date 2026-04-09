@@ -1,7 +1,5 @@
-import json
-
-from PyQt6.QtCore import QMimeData, Qt
-from PyQt6.QtGui import QColor, QDrag, QFont, QPixmap
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFont, QPixmap
 from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -12,23 +10,20 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from models.card import Card
-from models.game_state import GameCard, GameState, ZoneType
-from .signals import game_signals
+THUMB_W = 110
+THUMB_H = 154
 
-from .constants import CARD_H, CARD_W, MIME_TYPE
 
 THUMB_W = 110
 THUMB_H = 154
 
 
 class _DeckCardEntry(QFrame):
-    """Single draggable card tile in the deck list (image + name + count)."""
+    """Card tile in the deck list (image + name + count)."""
 
     def __init__(self, card, parent=None):
         super().__init__(parent)
         self.card = card
-        self.setCursor(Qt.CursorShape.OpenHandCursor)
         self.setFrameStyle(QFrame.Shape.StyledPanel)
         self.setStyleSheet("QFrame { background: #2a2a2a; border: 1px solid #555; border-radius: 4px; }")
 
@@ -85,40 +80,6 @@ class _DeckCardEntry(QFrame):
         info_row.addWidget(count_lbl)
 
         layout.addWidget(info_row_widget)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.RightButton:
-            gs = GameState.get_instance()
-            gs.push_snapshot()
-            gc = GameCard(Card(name=self.card.name, image_path=self.card.image_path, id=self.card.id))
-            gs.zones[ZoneType.HAND].add_card(gc)
-            game_signals.zones_updated.emit()
-
-    def mouseMoveEvent(self, event):
-        if not (event.buttons() & Qt.MouseButton.LeftButton):
-            return
-        drag = QDrag(self)
-        mime = QMimeData()
-        payload = json.dumps({
-            "source_zone": "deck_list",
-            "card_id": self.card.id,
-            "card_name": self.card.name,
-            "image_path": self.card.image_path,
-        })
-        mime.setData(MIME_TYPE, payload.encode())
-        drag.setMimeData(mime)
-
-        pix = QPixmap(self.card.image_path)
-        if not pix.isNull():
-            pix = pix.scaled(CARD_W, CARD_H,
-                             Qt.AspectRatioMode.IgnoreAspectRatio,
-                             Qt.TransformationMode.SmoothTransformation)
-        else:
-            pix = QPixmap(CARD_W, CARD_H)
-            pix.fill(QColor(70, 70, 70))
-        drag.setPixmap(pix)
-        drag.setHotSpot(event.pos())
-        drag.exec(Qt.DropAction.CopyAction)
 
 
 class DeckListWidget(QWidget):
