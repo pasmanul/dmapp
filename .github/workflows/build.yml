@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build and Release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     permissions:
       contents: write
@@ -42,8 +42,50 @@ jobs:
         run: |
           Compress-Archive -Path dist\dmapp\* -DestinationPath dmapp-${{ github.ref_name }}-windows.zip
 
-      - name: Create GitHub Release
+      - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dmapp-${{ github.ref_name }}-windows.zip
           generate_release_notes: true
+
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install pyinstaller
+          pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onedir --windowed --name dmapp main.py
+
+      - name: Copy data folder into app bundle
+        run: |
+          cp -r data dist/dmapp.app/Contents/MacOS/data
+          rm -rf dist/dmapp.app/Contents/MacOS/data/saves
+
+      - name: Create empty saves and decks directories
+        run: |
+          mkdir -p dist/dmapp.app/Contents/MacOS/data/saves
+          mkdir -p dist/dmapp.app/Contents/MacOS/data/decks
+
+      - name: Create zip archive
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/dmapp.app dmapp-${{ github.ref_name }}-macos.zip
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dmapp-${{ github.ref_name }}-macos.zip
