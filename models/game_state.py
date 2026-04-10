@@ -50,6 +50,7 @@ class ZoneType(Enum):
     GRAVEYARD = "graveyard"
     MANA = "mana"
     HAND = "hand"
+    TEMP = "temp"  # 手札とは別の非公開保留ゾーン
 
 
 class GameCard:
@@ -159,6 +160,20 @@ class GameState:
             return True
         return False
 
+    def search_deck(self, card_ids: list, dest: ZoneType = ZoneType.HAND) -> bool:
+        """指定IDのカードを山札から抜き取り dest ゾーンへ移動する。"""
+        deck = self.zones[ZoneType.DECK]
+        id_set = set(card_ids)
+        targets = [gc for gc in deck.cards if gc.card.id in id_set]
+        if not targets:
+            return False
+        self.push_snapshot()
+        for gc in targets:
+            deck.cards.remove(gc)
+            gc.face_down = False
+            self.zones[dest].add_card(gc)
+        return True
+
     def reset_field(self):
         for zt in [ZoneType.BATTLE, ZoneType.SHIELD, ZoneType.DECK, ZoneType.GRAVEYARD, ZoneType.MANA]:
             self.zones[zt].cards.clear()
@@ -166,6 +181,7 @@ class GameState:
     def initialize_field(self):
         self.reset_field()
         self.zones[ZoneType.HAND].cards.clear()
+        self.zones[ZoneType.TEMP].cards.clear()
         if self.current_deck is None:
             return
         # デッキカードを枚数分展開してシャッフル

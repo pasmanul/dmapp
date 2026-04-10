@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 from models.card_library import card_sort_key
 from models.game_state import GameState, ZoneType
 
+from .action_log_widget import ActionLogWidget
 from .constants import BATTLE_CARD_SCALE, CARD_H
 from .deck_manager import DeckManagerDialog
 from .signals import game_signals
@@ -62,14 +63,23 @@ class BoardWindow(QMainWindow):
 
         # ── Toolbar ──────────────────────────────────────────────────
         toolbar = QHBoxLayout()
+        btn_style = (
+            "QPushButton {{ background: {bg}; color: #ddd; border: 1px solid #666; border-radius: 4px; padding: 0 12px; }}"
+            "QPushButton:hover {{ background: {hover}; }}"
+        )
+
+        dice_btn = QPushButton("ダイス")
+        dice_btn.setFixedHeight(28)
+        dice_btn.setStyleSheet(btn_style.format(bg="#4a3a6a", hover="#6a5a8a"))
+        dice_btn.clicked.connect(self._open_dice)
+        toolbar.addWidget(dice_btn)
+
+        toolbar.addStretch()
+
         reset_btn = QPushButton("初期状態にリセット")
         reset_btn.setFixedHeight(28)
-        reset_btn.setStyleSheet(
-            "QPushButton { background: #3a3a6a; color: #ddd; border: 1px solid #666; border-radius: 4px; padding: 0 12px; }"
-            "QPushButton:hover { background: #4a4a8a; }"
-        )
+        reset_btn.setStyleSheet(btn_style.format(bg="#3a3a6a", hover="#4a4a8a"))
         reset_btn.clicked.connect(self._initialize_field)
-        toolbar.addStretch()
         toolbar.addWidget(reset_btn)
         outer.addLayout(toolbar)
 
@@ -87,7 +97,7 @@ class BoardWindow(QMainWindow):
         self.battle_zone.setMinimumHeight(battle_min_h)
         vsplit.addWidget(self._make_tap_panel(self.battle_zone, ZoneType.BATTLE))
 
-        # Middle row: Shield | Deck | Graveyard
+        # Middle row: Shield | Deck | Graveyard | ActionLog
         mid = QSplitter(Qt.Orientation.Horizontal)
         mid.setStyleSheet("QSplitter::handle { background: #3a3a5a; width: 4px; }")
         self.shield_zone = ZoneWidget(ZoneType.SHIELD, "シールド")
@@ -95,7 +105,10 @@ class BoardWindow(QMainWindow):
         mid.addWidget(self._make_deck_panel())
         self.grave_zone = ZoneWidget(ZoneType.GRAVEYARD, "墓地")
         mid.addWidget(self.grave_zone)
-        mid.setSizes([620, 170, 170])
+        self.action_log = ActionLogWidget()
+        self.action_log.setMinimumWidth(120)
+        mid.addWidget(self.action_log)
+        mid.setSizes([480, 150, 150, 180])
         vsplit.addWidget(mid)
 
         # Mana zone + Public hand (horizontal)
@@ -210,6 +223,7 @@ class BoardWindow(QMainWindow):
 
     def _draw_card(self):
         if GameState.get_instance().draw_card():
+            game_signals.action_logged.emit("ドロー")
             game_signals.zones_updated.emit()
 
     def _shuffle_deck(self):
@@ -219,6 +233,7 @@ class BoardWindow(QMainWindow):
             return
         gs.push_snapshot()
         random.shuffle(deck.cards)
+        game_signals.action_logged.emit("山札をシャッフル")
         game_signals.zones_updated.emit()
         self.deck_zone.start_shuffle_anim()
 
@@ -231,6 +246,7 @@ class BoardWindow(QMainWindow):
         if QMessageBox.question(self, "確認", msg) != QMessageBox.StandardButton.Yes:
             return
         gs.initialize_field()
+        game_signals.action_logged.emit("ゲームを開始")
         game_signals.zones_updated.emit()
 
     def _reset_field(self):
@@ -238,6 +254,7 @@ class BoardWindow(QMainWindow):
                 != QMessageBox.StandardButton.Yes:
             return
         GameState.get_instance().reset_field()
+        game_signals.action_logged.emit("フィールドをリセット")
         game_signals.zones_updated.emit()
 
     def _setup_shortcuts(self):
@@ -276,7 +293,17 @@ class BoardWindow(QMainWindow):
 
     def _undo(self):
         if GameState.get_instance().undo():
+            game_signals.action_logged.emit("アンドゥ")
             game_signals.zones_updated.emit()
+
+    def _open_dice(self):
+        from .dice_dialog import DiceDialog
+        if not hasattr(self, "_dice_dialog") or not self._dice_dialog.isVisible():
+            self._dice_dialog = DiceDialog(self)
+            self._dice_dialog.show()
+        else:
+            self._dice_dialog.raise_()
+            self._dice_dialog.activateWindow()
 
     def _open_deck_manager(self):
         DeckManagerDialog(self).exec()

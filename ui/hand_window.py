@@ -73,32 +73,35 @@ class HandWindow(QMainWindow):
         layout.addLayout(ctrl)
 
         # ── Hand zone ────────────────────────────────────────────────
-        hand_header = QHBoxLayout()
-        hand_title = QLabel("手札")
-        hand_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hand_title.setStyleSheet("color: #ddd; font-weight: bold;")
-        hand_header.addWidget(hand_title, 1)
-
         btn_style = (
             "QPushButton {{ background: {bg}; color: #eee; border: 1px solid #555; border-radius: 3px; padding: 0 10px; }}"
             "QPushButton:hover {{ background: {hover}; }}"
         )
 
+        hand_btns = QHBoxLayout()
+        hand_btns.addStretch()
+
         draw_btn = QPushButton("ドロー")
         draw_btn.setFixedHeight(24)
         draw_btn.setStyleSheet(btn_style.format(bg="#2a5a2a", hover="#3a7a3a"))
         draw_btn.clicked.connect(self._draw_card)
-        hand_header.addWidget(draw_btn)
+        hand_btns.addWidget(draw_btn)
 
         sort_btn = QPushButton("ソート")
         sort_btn.setFixedHeight(24)
         sort_btn.setStyleSheet(btn_style.format(bg="#3a3a6a", hover="#4a4a8a"))
         sort_btn.clicked.connect(self._sort_hand)
-        hand_header.addWidget(sort_btn)
-        layout.addLayout(hand_header)
+        hand_btns.addWidget(sort_btn)
+        layout.addLayout(hand_btns)
 
         self.hand_zone = ZoneWidget(ZoneType.HAND, "手札")
         layout.addWidget(self.hand_zone)
+
+        # ── 保留ゾーン ─────────────────────────────────────
+        self.temp_zone = ZoneWidget(ZoneType.TEMP, "保留")
+        self.temp_zone.setMinimumHeight(100)
+        self.temp_zone.setMaximumHeight(180)
+        layout.addWidget(self.temp_zone)
 
         # ── Deck card list ───────────────────────────────────────────
         list_title = QLabel("デッキカード一覧")
@@ -117,6 +120,7 @@ class HandWindow(QMainWindow):
 
     def _draw_card(self):
         if GameState.get_instance().draw_card():
+            game_signals.action_logged.emit("ドロー")
             game_signals.zones_updated.emit()
 
     def _load_deck(self):
