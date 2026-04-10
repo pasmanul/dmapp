@@ -27,3 +27,14 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# User data (cards, images, decks, saves)
+data/cards.json
+data/cards/
+data/back*.jpg
+data/back*.webp
+data/back*.png
+data/decks/*.json
+data/saves/*
+!data/saves/.gitkeep
+data/config.json
