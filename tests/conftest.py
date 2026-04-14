@@ -1,8 +1,2 @@
-import pytest
-from PyQt6.QtWidgets import QApplication
-
-
-@pytest.fixture(scope="session")
-def qapp():
-    app = QApplication.instance() or QApplication([])
-    yield app
+# pytest-qt が qapp フィクスチャを session スコープで自動提供するため、ここでの定義は不要。
+# qtbot や qapp は pytest-qt プラグインが管理する。
