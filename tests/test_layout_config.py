@@ -1,5 +1,4 @@
 import json
-import os
 import pytest
 from models.layout_config import ZoneDefinition, WindowDefinition, GridPos, load_game_config, save_game_config
 

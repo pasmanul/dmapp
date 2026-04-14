@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
-from dataclasses import dataclass, field, asdict
+import os
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -75,7 +76,6 @@ def load_game_config(path: str) -> tuple[list[WindowDefinition], list[ZoneDefini
 
 
 def save_game_config(path: str, windows: list[WindowDefinition], zones: list[ZoneDefinition]):
-    import os
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     data = {
         "windows": [
