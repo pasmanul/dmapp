@@ -1,10 +1,21 @@
-"""Centralized visual theme for dmapp — 5-Civilization color system."""
+"""Centralized visual theme — Composio-inspired dark design system."""
 
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsDropShadowEffect
 
+# ── Composio-inspired color tokens ──────────────────────────────────────
+VOID_BLACK       = "#0f0f0f"                 # メインウィンドウ背景
+PURE_BLACK       = "#000000"                 # ゾーン内部・カード背景
+ELECTRIC_CYAN    = "#00ffff"                 # アクセント（レイアウト編集ハイライト）
+SIGNAL_BLUE      = "#0089ff"                 # ボタン border・フォーカス
+OCEAN_BLUE       = "#0096ff"                 # CTA ボタン border
+PURE_WHITE       = "#ffffff"                 # 強調テキスト
+GHOST_WHITE      = "rgba(255,255,255,0.6)"   # セカンダリテキスト
+BORDER_MIST_10   = "rgba(255,255,255,0.10)"  # 標準 border
+BORDER_MIST_06   = "rgba(255,255,255,0.06)"  # 微かな区切り
+
 # ── Window ────────────────────────────────────────────────────────────
-WIN_BG = "#08091a"
+WIN_BG = VOID_BLACK
 FONT_JP = "Yu Gothic UI"
 
 # ── Zone colors ───────────────────────────────────────────────────────
