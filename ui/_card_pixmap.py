@@ -11,22 +11,27 @@ from PyQt6.QtGui import (
     QTransform,
 )
 
-from models.game_state import ZoneType
-
 from .constants import CARD_BACK_PATH, CARD_H, CARD_W
 
 _card_back_cache: dict = {}
 _card_back_tapped_cache: dict = {}
 
-_ZONE_NAMES = {
-    ZoneType.BATTLE:    "バトルゾーン",
-    ZoneType.SHIELD:    "シールドゾーン",
-    ZoneType.DECK:      "山札",
-    ZoneType.GRAVEYARD: "墓地",
-    ZoneType.MANA:      "マナゾーン",
-    ZoneType.HAND:      "手札",
-    ZoneType.TEMP:      "保留",
+_ZONE_NAMES: dict[str, str] = {
+    "battle":    "バトルゾーン",
+    "shield":    "シールドゾーン",
+    "deck":      "山札",
+    "graveyard": "墓地",
+    "mana":      "マナゾーン",
+    "hand":      "手札",
+    "temp":      "保留",
 }
+
+
+def update_zone_names(zone_defs) -> None:
+    """ZoneDefinition リストから _ZONE_NAMES を再構築する。main.py 起動時に呼ぶ。"""
+    _ZONE_NAMES.clear()
+    for zd in zone_defs:
+        _ZONE_NAMES[zd.id] = zd.name
 
 _MARKER_COLORS = {
     "red":    QColor(220, 60,  60),
