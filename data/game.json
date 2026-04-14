@@ -111,7 +111,24 @@
         "col": 0,
         "row": 0,
         "col_span": 6,
-        "row_span": 12
+        "row_span": 10
+      },
+      "visibility": "private",
+      "pile_mode": false,
+      "tappable": false,
+      "card_scale": 1.0,
+      "two_row": false,
+      "masked": false
+    },
+    {
+      "id": "temp",
+      "name": "保留",
+      "window_id": "hand",
+      "grid_pos": {
+        "col": 0,
+        "row": 10,
+        "col_span": 6,
+        "row_span": 2
       },
       "visibility": "private",
       "pile_mode": false,
