@@ -3,7 +3,7 @@ import os
 import random
 import uuid
 from collections import deque
-from typing import Dict, List, Optional
+from typing import Optional
 
 from .card import Card
 
@@ -14,7 +14,7 @@ class GameCard:
         self.tapped: bool = False
         self.face_down: bool = False
         self.revealed: bool = False  # 手札を相手に公開するフラグ
-        self.under_cards: List["GameCard"] = []
+        self.under_cards: list["GameCard"] = []
         self.row: int = 0  # 0=下段, 1=上段（バトルゾーン用）
         self.marker: Optional[str] = None  # 色マーク (例: "red", "blue", ...)
 
@@ -55,7 +55,7 @@ class GameCard:
 class Zone:
     def __init__(self, zone_id: str):
         self.zone_id = zone_id
-        self.cards: List[GameCard] = []
+        self.cards: list[GameCard] = []
 
     def add_card(self, game_card: GameCard):
         self.cards.append(game_card)
@@ -92,6 +92,7 @@ class GameState:
     def initialize_zones(self, zone_ids: list[str]):
         """zone_ids リストに合わせてゾーンを再構築する。game.json ロード後に呼ぶ。"""
         self.zones = {zid: Zone(zid) for zid in zone_ids}
+        self._undo_stack.clear()
 
     # ------------------------------------------------------------------
     # Snapshot / Undo
@@ -145,20 +146,22 @@ class GameState:
     def draw_card(self) -> bool:
         """山札の一番上から手札へ1枚ドローする。成功したら True を返す。"""
         deck = self.zones.get("deck")
-        if not deck or not deck.cards:
+        hand = self.zones.get("hand")
+        if not deck or not hand or not deck.cards:
             return False
         self.push_snapshot()
         gc = deck.remove_card(len(deck) - 1)
         if gc:
             gc.face_down = False
-            self.zones["hand"].add_card(gc)
+            hand.add_card(gc)
             return True
         return False
 
     def search_deck(self, card_ids: list, dest: str = "hand") -> bool:
         """指定IDのカードを山札から抜き取り dest ゾーンへ移動する。"""
         deck = self.zones.get("deck")
-        if not deck:
+        dest_zone = self.zones.get(dest)
+        if not deck or not dest_zone:
             return False
         id_set = set(card_ids)
         targets = [gc for gc in deck.cards if gc.card.id in id_set]
@@ -168,7 +171,7 @@ class GameState:
         for gc in targets:
             deck.cards.remove(gc)
             gc.face_down = False
-            self.zones[dest].add_card(gc)
+            dest_zone.add_card(gc)
         return True
 
     def reset_field(self):
@@ -184,7 +187,7 @@ class GameState:
         if self.current_deck is None:
             return
         # デッキカードを枚数分展開してシャッフル
-        cards: List[GameCard] = []
+        cards: list[GameCard] = []
         for deck_card in self.current_deck.cards:
             for _ in range(deck_card.count):
                 gc = GameCard(Card(
