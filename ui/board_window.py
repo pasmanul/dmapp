@@ -23,6 +23,10 @@ from .action_log_widget import ActionLogWidget
 from .constants import BATTLE_CARD_SCALE, CARD_H
 from .deck_manager import DeckManagerDialog
 from .signals import game_signals
+from .theme import (
+    MENUBAR_STYLE, SPLITTER_STYLE, WIN_BG,
+    btn_dice, btn_draw, btn_reset, btn_shuffle, btn_sort,
+)
 from .zone_widget import ZoneWidget, rebuild_key_zone
 
 
@@ -31,7 +35,8 @@ class BoardWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("デュエルマスターズ — フィールド（画面共有用）")
         self.resize(960, 780)
-        self.setStyleSheet("background-color: #1a1a2e;")
+        self.setStyleSheet(f"QMainWindow, QWidget {{ background-color: {WIN_BG}; }}")
+        self.menuBar().setStyleSheet(MENUBAR_STYLE)
         self._setup_menu()
         self._setup_ui()
         self._setup_shortcuts()
@@ -60,19 +65,16 @@ class BoardWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
         outer = QVBoxLayout(central)
-        outer.setSpacing(4)
-        outer.setContentsMargins(6, 6, 6, 6)
+        outer.setSpacing(8)
+        outer.setContentsMargins(10, 8, 10, 10)
 
         # ── Toolbar ──────────────────────────────────────────────────
         toolbar = QHBoxLayout()
-        btn_style = (
-            "QPushButton {{ background: {bg}; color: #ddd; border: 1px solid #666; border-radius: 4px; padding: 0 12px; }}"
-            "QPushButton:hover {{ background: {hover}; }}"
-        )
+        toolbar.setSpacing(6)
 
         dice_btn = QPushButton("ダイス")
         dice_btn.setFixedHeight(28)
-        dice_btn.setStyleSheet(btn_style.format(bg="#4a3a6a", hover="#6a5a8a"))
+        dice_btn.setStyleSheet(btn_dice())
         dice_btn.clicked.connect(self._open_dice)
         toolbar.addWidget(dice_btn)
 
@@ -80,17 +82,14 @@ class BoardWindow(QMainWindow):
 
         reset_btn = QPushButton("初期状態にリセット")
         reset_btn.setFixedHeight(28)
-        reset_btn.setStyleSheet(btn_style.format(bg="#3a3a6a", hover="#4a4a8a"))
+        reset_btn.setStyleSheet(btn_reset())
         reset_btn.clicked.connect(self._initialize_field)
         toolbar.addWidget(reset_btn)
         outer.addLayout(toolbar)
 
         # ── Vertical splitter ─────────────────────────────────────────
         vsplit = QSplitter(Qt.Orientation.Vertical)
-        vsplit.setStyleSheet(
-            "QSplitter::handle:vertical { background: #3a3a5a; height: 4px; }"
-            "QSplitter::handle:horizontal { background: #3a3a5a; width: 4px; }"
-        )
+        vsplit.setStyleSheet(SPLITTER_STYLE)
 
         # Battle zone
         battle_ch = int(CARD_H * BATTLE_CARD_SCALE)
@@ -101,7 +100,7 @@ class BoardWindow(QMainWindow):
 
         # Middle row: Shield | Deck | Graveyard | ActionLog
         mid = QSplitter(Qt.Orientation.Horizontal)
-        mid.setStyleSheet("QSplitter::handle { background: #3a3a5a; width: 4px; }")
+        mid.setStyleSheet(SPLITTER_STYLE)
         self.shield_zone = ZoneWidget(ZoneType.SHIELD, "シールド")
         mid.addWidget(self.shield_zone)
         mid.addWidget(self._make_deck_panel())
@@ -115,7 +114,7 @@ class BoardWindow(QMainWindow):
 
         # Mana zone + Public hand (horizontal)
         mana_row = QSplitter(Qt.Orientation.Horizontal)
-        mana_row.setStyleSheet("QSplitter::handle { background: #3a3a5a; width: 4px; }")
+        mana_row.setStyleSheet(SPLITTER_STYLE)
 
         self.mana_zone = ZoneWidget(ZoneType.MANA, "マナゾーン")
         self.mana_zone.setMinimumHeight(80)
@@ -132,20 +131,21 @@ class BoardWindow(QMainWindow):
         outer.addWidget(vsplit)
 
     def _make_tap_panel(self, zone_widget: ZoneWidget, zone_type: ZoneType) -> ZoneWidget:
-        btn_style = (
-            "QPushButton { background: rgba(40,40,80,200); color: #ccc;"
-            " border: 1px solid #555; border-radius: 2px; font-size: 9px; padding: 0 4px; }"
-            "QPushButton:hover { background: rgba(70,70,130,220); }"
+        _overlay_style = (
+            "QPushButton { background: rgba(10,14,32,210); color: #99bbdd;"
+            " border: 1px solid rgba(60,90,140,180); border-radius: 3px;"
+            " font-size: 9px; font-family: 'Yu Gothic UI'; padding: 0 4px; }"
+            "QPushButton:hover { background: rgba(30,50,100,230); color: #cce0ff; }"
         )
         untap_btn = QPushButton("全解除", zone_widget)
         untap_btn.setFixedSize(44, 18)
-        untap_btn.setStyleSheet(btn_style)
+        untap_btn.setStyleSheet(_overlay_style)
         untap_btn.raise_()
         untap_btn.clicked.connect(lambda: self._set_all_tap(zone_type, False))
 
         tap_btn = QPushButton("全タップ", zone_widget)
         tap_btn.setFixedSize(52, 18)
-        tap_btn.setStyleSheet(btn_style)
+        tap_btn.setStyleSheet(_overlay_style)
         tap_btn.raise_()
         tap_btn.clicked.connect(lambda: self._set_all_tap(zone_type, True))
 
@@ -153,7 +153,7 @@ class BoardWindow(QMainWindow):
         if zone_type == ZoneType.BATTLE:
             sort_btn = QPushButton("ソート", zone_widget)
             sort_btn.setFixedSize(48, 18)
-            sort_btn.setStyleSheet(btn_style)
+            sort_btn.setStyleSheet(_overlay_style)
             sort_btn.raise_()
             sort_btn.clicked.connect(self._sort_battle_zone)
 
@@ -201,22 +201,18 @@ class BoardWindow(QMainWindow):
         layout.addWidget(self.deck_zone)
 
         # ── Controls ──────────────────────────────────────────────────
-        btn_style = (
-            "QPushButton {{ background: {bg}; color: #eee; border: 1px solid #555; border-radius: 3px; }}"
-            "QPushButton:hover {{ background: {hover}; }}"
-        )
         ctrl = QHBoxLayout()
         ctrl.setSpacing(4)
 
         draw_btn = QPushButton("ドロー")
         draw_btn.setFixedHeight(26)
-        draw_btn.setStyleSheet(btn_style.format(bg="#2a5a2a", hover="#3a7a3a"))
+        draw_btn.setStyleSheet(btn_draw())
         draw_btn.clicked.connect(self._draw_card)
         ctrl.addWidget(draw_btn)
 
         shuffle_btn = QPushButton("シャッフル")
         shuffle_btn.setFixedHeight(26)
-        shuffle_btn.setStyleSheet(btn_style.format(bg="#5a3a2a", hover="#7a4a3a"))
+        shuffle_btn.setStyleSheet(btn_shuffle())
         shuffle_btn.clicked.connect(self._shuffle_deck)
         ctrl.addWidget(shuffle_btn)
 

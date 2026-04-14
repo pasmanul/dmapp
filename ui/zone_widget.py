@@ -1,14 +1,16 @@
 import json
 from typing import List, Optional, Tuple
 
-from PyQt6.QtCore import QMimeData, QPoint, QRect, Qt, QTimer
+from PyQt6.QtCore import QMimeData, QPoint, QRect, QRectF, Qt, QTimer
 from PyQt6.QtGui import (
     QBrush,
     QColor,
     QDrag,
     QFont,
     QKeySequence,
+    QLinearGradient,
     QPainter,
+    QPainterPath,
     QPen,
     QPixmap,
     QTransform,
@@ -30,6 +32,9 @@ from ._card_pixmap import (
 )
 from .constants import CARD_BACK_PATH, CARD_H, CARD_W, MIME_TYPE
 from .signals import game_signals
+from .theme import FONT_JP, zone_colors, zone_shadow
+
+_ZONE_RADIUS = 10  # 角丸半径（px）
 
 
 _KEY_ZONE: dict[str, ZoneType] = {}
@@ -91,7 +96,8 @@ class ZoneWidget(QFrame):
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setMinimumHeight(self._ch + self.TITLE_H + 10)
-        self.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Plain)
+        self.setFrameStyle(QFrame.Shape.NoFrame)
+        self.setGraphicsEffect(zone_shadow())
         game_signals.zones_updated.connect(self._on_zones_updated)
 
     # ------------------------------------------------------------------
@@ -250,31 +256,67 @@ class ZoneWidget(QFrame):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Background
-        painter.fillRect(self.rect(), QColor(30, 30, 50))
-        painter.setPen(QPen(QColor(80, 90, 140), 1))
-        painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        zc = zone_colors(self.zone_type.value)
+        r = _ZONE_RADIUS
+        w, h = self.width(), self.height()
 
-        # Title
-        painter.setPen(QColor(255, 255, 180))
-        painter.setFont(QFont("Arial", 9, QFont.Weight.Bold))
+        # ── 角丸クリップパス ──────────────────────────────────────────
+        clip_path = QPainterPath()
+        clip_path.addRoundedRect(QRectF(0, 0, w, h), r, r)
+        painter.setClipPath(clip_path)
+
+        # ── グラデーション背景 ────────────────────────────────────────
+        grad = QLinearGradient(0, 0, 0, h)
+        grad.setColorAt(0.0, zc["bg_top"])
+        grad.setColorAt(1.0, zc["bg_bottom"])
+        painter.fillPath(clip_path, QBrush(grad))
+
+        # ── タイトルバー（暗色ベース） ─────────────────────────────────
+        title_path = QPainterPath()
+        title_path.addRoundedRect(QRectF(0, 0, w, self.TITLE_H), r, r)
+        # 下側の角丸を消す（矩形で上書き）
+        title_path.addRect(QRectF(0, r, w, self.TITLE_H - r))
+        painter.fillPath(title_path, zc["title_bar"])
+
+        # ── 上部アクセントライン（文明カラーの横グラデーション） ─────────
+        accent_grad = QLinearGradient(0, 0, w, 0)
+        border_color = zc["border"]
+        accent_grad.setColorAt(0.0, border_color)
+        accent_grad.setColorAt(0.6, border_color)
+        accent_grad.setColorAt(1.0, QColor(border_color.red(), border_color.green(),
+                                           border_color.blue(), 30))
+        painter.fillRect(QRectF(0, 0, w, 3), QBrush(accent_grad))
+
+        # ── タイトル区切り線 ──────────────────────────────────────────
+        sep_color = QColor(border_color.red(), border_color.green(),
+                           border_color.blue(), 60)
+        painter.setPen(QPen(sep_color, 1))
+        painter.drawLine(0, self.TITLE_H, w, self.TITLE_H)
+
+        # ── ボーダー（角丸） ──────────────────────────────────────────
+        painter.setPen(QPen(QColor(border_color.red(), border_color.green(),
+                                  border_color.blue(), 120), 1))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(0.5, 0.5, w - 1, h - 1), r, r)
+
+        # ── タイトルテキスト ──────────────────────────────────────────
+        painter.setPen(zc["title_fg"])
+        painter.setFont(QFont(FONT_JP, 9, QFont.Weight.Bold))
         zone = self._zone()
         n = len(zone.cards)
         title = f"{self.label}  ({n})" if n > 0 else self.label
-        painter.drawText(4, self.TITLE_H - 4, title)
+        painter.drawText(8, self.TITLE_H - 5, title)
 
         self._calculate_positions()
 
         if self.pile_mode and n > 0:
-            # Draw single back card + big count overlay
             x, y, _ = self._card_positions[0]
             painter.drawPixmap(x, y, self._cw, self._ch, _make_card_back(self._back_path()))
-            count_rect = QRect(x, y + self._ch - 24, self._cw, 24)
-            painter.fillRect(count_rect, QColor(0, 0, 0, 200))
-            painter.setFont(QFont("Arial", 13, QFont.Weight.Bold))
-            painter.setPen(QColor(255, 255, 0))
+            count_rect = QRect(x, y + self._ch - 28, self._cw, 28)
+            painter.fillRect(count_rect, QColor(0, 0, 0, 210))
+            painter.setFont(QFont(FONT_JP, 14, QFont.Weight.Bold))
+            painter.setPen(zc["title_fg"])
             painter.drawText(count_rect, Qt.AlignmentFlag.AlignCenter, str(n))
-            # シャッフルフラッシュ
             if self._flash_alpha > 0:
                 painter.fillRect(QRect(x, y, self._cw, self._ch),
                                  QColor(255, 255, 255, self._flash_alpha))
@@ -286,9 +328,9 @@ class ZoneWidget(QFrame):
             self._paint_card(painter, zone.cards[i], x, y)
 
         if self._is_overlapping():
-            painter.setFont(QFont("Arial", 7))
-            painter.setPen(QColor(200, 255, 200))
-            painter.drawText(2, self.height() - 3, "ダブルクリックで展開")
+            painter.setFont(QFont(FONT_JP, 7))
+            painter.setPen(zc["title_fg"])
+            painter.drawText(6, h - 5, "ダブルクリックで展開")
 
     def _paint_card(self, painter: QPainter, gc: GameCard, x: int, y: int):
         """1枚のカードをペイントする（影・回転・ハイライト・バッジ・マーカー含む）。"""

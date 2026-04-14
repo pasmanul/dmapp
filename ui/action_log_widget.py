@@ -25,7 +25,10 @@ class ActionLogWidget(QWidget):
         title = QLabel("アクションログ")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setFixedHeight(20)
-        title.setStyleSheet("color:#aaa;font-size:10px;font-weight:bold;background:transparent;")
+        title.setStyleSheet(
+            "color:#6688aa; font-size:10px; font-weight:bold;"
+            "background:transparent; font-family:'Yu Gothic UI';"
+        )
         layout.addWidget(title)
 
         self._text = QTextEdit()
@@ -33,10 +36,11 @@ class ActionLogWidget(QWidget):
         self._text.setFont(QFont("Consolas", 9))
         self._text.setStyleSheet(
             "QTextEdit{"
-            "  background:#0e0e1a;"
-            "  color:#bbb;"
-            "  border:1px solid #3a3a5a;"
+            "  background:#080b18;"
+            "  color:#8899bb;"
+            "  border:1px solid #1e2848;"
             "  font-size:10px;"
+            "  selection-background-color:#1e3060;"
             "}"
         )
         layout.addWidget(self._text)
