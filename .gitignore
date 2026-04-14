@@ -29,6 +29,9 @@ Thumbs.db
 .claude/*
 !.claude/commands/
 
+# Superpowers brainstorm sessions
+.superpowers/
+
 # User data (cards, images, decks, saves)
 data/cards.json
 data/cards/
