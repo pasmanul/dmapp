@@ -15,10 +15,11 @@ from models.deck import Deck
 from models.game_state import GameState
 from models.layout_config import WindowDefinition, ZoneDefinition
 from .action_log_widget import ActionLogWidget
+from .constants import GAME_CONFIG_PATH, UI_WIDGET_DECK_LIST
 from .deck_list_widget import DeckListWidget
 from .deck_manager import DeckManagerDialog
 from .signals import game_signals
-from .theme import MENUBAR_STYLE, WIN_BG, btn_dice, btn_load, btn_reset
+from .theme import MENUBAR_STYLE, WIN_BG, btn_dice, btn_load, btn_reset, btn_zone_overlay
 from .zone_widget import ZoneWidget, rebuild_key_zone
 from . import keybindings as kb
 
@@ -41,14 +42,18 @@ def _save_config(data: dict):
 
 
 class GameWindow(QMainWindow):
-    def __init__(self, win_def: WindowDefinition, zone_defs: list[ZoneDefinition]):
+    def __init__(self, win_def: WindowDefinition, zone_defs: list[ZoneDefinition],
+                 win_defs: list[WindowDefinition] | None = None):
         super().__init__()
         self.win_def = win_def
+        self._win_defs = win_defs or [win_def]
         self._all_zone_defs = zone_defs  # 全ウィンドウのゾーン定義（layout editor 保存用）
         # この window に属するゾーン定義（source_zone_id を持つビューゾーンも含む）
         self.zone_defs = [z for z in zone_defs if z.window_id == win_def.id]
         self.zone_widgets: dict[str, ZoneWidget] = {}  # zone_id → ZoneWidget
         self._is_hand_window = (win_def.id == "hand")
+        self._action_log = None
+        self._dice_dialog = None
 
         self.setWindowTitle(win_def.title)
         self.resize(win_def.width, win_def.height)
@@ -86,6 +91,12 @@ class GameWindow(QMainWindow):
         settings_menu.addAction("キーバインド設定…", self._open_keybinding_settings)
         settings_menu.addAction("レイアウト編集…", self._open_layout_editor)
 
+    def _apply_grid_stretches(self):
+        for c in range(self.win_def.grid_cols):
+            self._grid_layout.setColumnStretch(c, 1)
+        for r in range(self.win_def.grid_rows):
+            self._grid_layout.setRowStretch(r, 1)
+
     def _setup_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
@@ -120,17 +131,14 @@ class GameWindow(QMainWindow):
         self._grid_layout.setSpacing(4)
         self._grid_layout.setContentsMargins(0, 0, 0, 0)
 
-        for c in range(self.win_def.grid_cols):
-            self._grid_layout.setColumnStretch(c, 1)
-        for r in range(self.win_def.grid_rows):
-            self._grid_layout.setRowStretch(r, 1)
+        self._apply_grid_stretches()
 
         for zd in self.zone_defs:
             widget = self._make_zone_widget(zd)
             self.zone_widgets[zd.id] = widget
             gp = zd.grid_pos
             self._grid_layout.addWidget(widget, gp.row, gp.col, gp.row_span, gp.col_span)
-            if zd.ui_widget == "deck_list":
+            if zd.ui_widget == UI_WIDGET_DECK_LIST:
                 self.deck_list = widget
 
         # アクションログ（手札ウィンドウ以外に追加）
@@ -169,7 +177,7 @@ class GameWindow(QMainWindow):
             outer.insertLayout(0, ctrl)
 
     def _make_zone_widget(self, zd: ZoneDefinition):
-        if zd.ui_widget == "deck_list":
+        if zd.ui_widget == UI_WIDGET_DECK_LIST:
             return DeckListWidget()
 
         widget = ZoneWidget(zd)
@@ -186,26 +194,20 @@ class GameWindow(QMainWindow):
         return widget
 
     def _add_tap_buttons(self, zone_widget: ZoneWidget, zd: ZoneDefinition):
-        _overlay_style = (
-            "QPushButton { background: rgba(10,14,32,210); color: #99bbdd;"
-            " border: 1px solid rgba(60,90,140,180); border-radius: 3px;"
-            " font-size: 9px; font-family: 'Yu Gothic UI'; padding: 0 4px; }"
-            "QPushButton:hover { background: rgba(30,50,100,230); color: #cce0ff; }"
-        )
         untap_btn = QPushButton("全解除", zone_widget)
         untap_btn.setFixedSize(44, 18)
-        untap_btn.setStyleSheet(_overlay_style)
+        untap_btn.setStyleSheet(btn_zone_overlay())
         untap_btn.clicked.connect(lambda: self._set_all_tap(zd.id, False))
 
         tap_btn = QPushButton("全タップ", zone_widget)
         tap_btn.setFixedSize(52, 18)
-        tap_btn.setStyleSheet(_overlay_style)
+        tap_btn.setStyleSheet(btn_zone_overlay())
         tap_btn.clicked.connect(lambda: self._set_all_tap(zd.id, True))
 
         if zd.two_row:
             sort_btn = QPushButton("ソート", zone_widget)
             sort_btn.setFixedSize(48, 18)
-            sort_btn.setStyleSheet(_overlay_style)
+            sort_btn.setStyleSheet(btn_zone_overlay())
             sort_btn.clicked.connect(self._sort_battle_zone)
         else:
             sort_btn = None
@@ -230,20 +232,14 @@ class GameWindow(QMainWindow):
 
     def _add_deck_buttons(self, zone_widget: ZoneWidget):
         """山札ゾーンにドロー・シャッフルボタンをオーバーレイする。"""
-        _btn_style = (
-            "QPushButton { background: rgba(10,14,32,210); color: #99bbdd;"
-            " border: 1px solid rgba(60,90,140,180); border-radius: 3px;"
-            " font-size: 9px; font-family: 'Yu Gothic UI'; padding: 0 4px; }"
-            "QPushButton:hover { background: rgba(30,50,100,230); color: #cce0ff; }"
-        )
         draw_btn = QPushButton("ドロー", zone_widget)
         draw_btn.setFixedSize(48, 18)
-        draw_btn.setStyleSheet(_btn_style)
+        draw_btn.setStyleSheet(btn_zone_overlay())
         draw_btn.clicked.connect(self._draw_card)
 
         shuffle_btn = QPushButton("シャッフル", zone_widget)
         shuffle_btn.setFixedSize(60, 18)
-        shuffle_btn.setStyleSheet(_btn_style)
+        shuffle_btn.setStyleSheet(btn_zone_overlay())
         shuffle_btn.clicked.connect(self._shuffle_deck)
 
         def reposition():
@@ -257,15 +253,9 @@ class GameWindow(QMainWindow):
 
     def _add_hand_buttons(self, zone_widget: ZoneWidget):
         """手札ゾーンにソートボタンをオーバーレイする。"""
-        _btn_style = (
-            "QPushButton { background: rgba(10,14,32,210); color: #99bbdd;"
-            " border: 1px solid rgba(60,90,140,180); border-radius: 3px;"
-            " font-size: 9px; font-family: 'Yu Gothic UI'; padding: 0 4px; }"
-            "QPushButton:hover { background: rgba(30,50,100,230); color: #cce0ff; }"
-        )
         sort_btn = QPushButton("ソート", zone_widget)
         sort_btn.setFixedSize(44, 18)
-        sort_btn.setStyleSheet(_btn_style)
+        sort_btn.setStyleSheet(btn_zone_overlay())
         sort_btn.clicked.connect(self._sort_hand)
 
         def reposition():
@@ -277,10 +267,11 @@ class GameWindow(QMainWindow):
 
     def _sort_hand(self):
         gs = GameState.get_instance()
-        gs.push_snapshot()
         hand = gs.zones.get("hand")
-        if hand:
-            hand.cards.sort(key=lambda gc: card_sort_key(gc.card))
+        if hand is None or not hand.cards:
+            return
+        gs.push_snapshot()
+        hand.cards.sort(key=lambda gc: card_sort_key(gc.card))
         game_signals.zones_updated.emit()
 
     def _setup_shortcuts(self):
@@ -408,7 +399,7 @@ class GameWindow(QMainWindow):
 
     def _open_dice(self):
         from .dice_dialog import DiceDialog
-        if not hasattr(self, "_dice_dialog") or not self._dice_dialog.isVisible():
+        if self._dice_dialog is None or not self._dice_dialog.isVisible():
             self._dice_dialog = DiceDialog(self)
             self._dice_dialog.show()
         else:
@@ -426,14 +417,12 @@ class GameWindow(QMainWindow):
 
     def _open_layout_editor(self):
         from .layout_editor import LayoutEditorDialog
-        dlg = LayoutEditorDialog(self.win_def, self._all_zone_defs, self)
+        dlg = LayoutEditorDialog(self.win_def, self._win_defs, self._all_zone_defs, self)
         dlg.exec()
 
-    def _reload_layout(self):
-        from models.layout_config import load_game_config
+    def _reload_layout(self, zone_defs: list[ZoneDefinition]):
         from .zone_widget import register_zone_defs
 
-        _, zone_defs = load_game_config("data/game.json")
         self._all_zone_defs = zone_defs
         self.zone_defs = [z for z in zone_defs if z.window_id == self.win_def.id]
         register_zone_defs(zone_defs)
@@ -443,10 +432,7 @@ class GameWindow(QMainWindow):
             self._grid_layout.takeAt(0)
 
         # stretch を再設定
-        for c in range(self.win_def.grid_cols):
-            self._grid_layout.setColumnStretch(c, 1)
-        for r in range(self.win_def.grid_rows):
-            self._grid_layout.setRowStretch(r, 1)
+        self._apply_grid_stretches()
 
         # ゾーンウィジェットを新しい位置に再配置し、内部の zone_def も更新
         for zd in self.zone_defs:
@@ -459,7 +445,7 @@ class GameWindow(QMainWindow):
             self._grid_layout.addWidget(widget, gp.row, gp.col, gp.row_span, gp.col_span)
 
         # アクションログを右端に再追加
-        if hasattr(self, '_action_log'):
+        if self._action_log is not None:
             self._grid_layout.addWidget(
                 self._action_log, 0, self.win_def.grid_cols, self.win_def.grid_rows, 1
             )

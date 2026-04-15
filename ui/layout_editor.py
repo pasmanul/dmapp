@@ -210,11 +210,13 @@ class _GridCanvas(QWidget):
 
 
 class LayoutEditorDialog(QDialog):
-    def __init__(self, win_def: WindowDefinition, zone_defs: list[ZoneDefinition], parent=None):
+    def __init__(self, win_def: WindowDefinition, win_defs: list[WindowDefinition],
+                 zone_defs: list[ZoneDefinition], parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"レイアウト編集 — {win_def.title}")
         self.resize(700, 500)
         self._win_def = win_def
+        self._win_defs = win_defs
         self._all_zone_defs = zone_defs
 
         layout = QVBoxLayout(self)
@@ -239,13 +241,9 @@ class LayoutEditorDialog(QDialog):
         layout.addLayout(btns)
 
     def _save(self):
+        from .signals import game_signals
         edited = {zd.id: zd for zd in self._canvas.zone_defs}
         merged = [edited.get(z.id, z) for z in self._all_zone_defs]
-
-        from models.layout_config import load_game_config
-        from .signals import game_signals
-        win_defs, _ = load_game_config("data/game.json")
-        save_game_config("data/game.json", win_defs, merged)
-
+        save_game_config("data/game.json", self._win_defs, merged)
         self.accept()
-        game_signals.layout_updated.emit()
+        game_signals.layout_updated.emit(merged)

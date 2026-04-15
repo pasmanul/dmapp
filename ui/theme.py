@@ -112,6 +112,14 @@ def btn_load() -> str:
     return btn_style(bg="#0c1828", fg="#88aade", border="#284060",
                      hover="#102238", hover_border="#3a5888", pressed="#080e1c")
 
+def btn_zone_overlay() -> str:
+    return (
+        "QPushButton { background: rgba(10,14,32,210); color: #99bbdd;"
+        " border: 1px solid rgba(60,90,140,180); border-radius: 3px;"
+        " font-size: 9px; font-family: 'Yu Gothic UI'; padding: 0 4px; }"
+        "QPushButton:hover { background: rgba(30,50,100,230); color: #cce0ff; }"
+    )
+
 
 # ── Drop shadow ───────────────────────────────────────────────────────
 def zone_shadow(blur: int = 18, offset_y: int = 4, alpha: int = 160) -> QGraphicsDropShadowEffect:

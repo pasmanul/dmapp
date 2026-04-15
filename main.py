@@ -44,7 +44,7 @@ def main():
     # ── ウィンドウを生成・表示 ────────────────────────────────────────
     windows = []
     for win_def in win_defs:
-        w = GameWindow(win_def, zone_defs)
+        w = GameWindow(win_def, zone_defs, win_defs)
         w.show()
         windows.append(w)
 
