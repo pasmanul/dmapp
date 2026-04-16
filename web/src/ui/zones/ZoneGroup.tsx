@@ -32,23 +32,31 @@ export function ZoneGroup({ zoneDef, x, y, width, height, sourceZoneId }: Props)
   const cards = useGameStore(s => s.zones[effectiveZoneId]?.cards ?? [])
   const moveCard = useGameStore(s => s.moveCard)
   const tapCard = useGameStore(s => s.tapCard)
-  const { selectedCardIds, selectCard, clearSelection, openContextMenu, openStackDialog, addLog } = useUIStore(s => ({
+  const { selectedCardIds, selectCard, clearSelection, openContextMenu, openStackDialog, addLog, setHoveredCard } = useUIStore(s => ({
     selectedCardIds: s.selectedCardIds,
     selectCard: s.selectCard,
     clearSelection: s.clearSelection,
     openContextMenu: s.openContextMenu,
     openStackDialog: s.openStackDialog,
     addLog: s.addLog,
+    setHoveredCard: s.setHoveredCard,
   }))
 
   const colors = zoneColors(zoneDef.id)
   const cardScale = zoneDef.card_scale ?? 1.0
-  const cardW = Math.round(CARD_W * cardScale)
-  const cardH = Math.round(CARD_H * cardScale)
 
   const TITLE_H = 22
   const contentY = y + TITLE_H
   const contentH = height - TITLE_H
+
+  // ゾーン高さに収まるようにカードをスケールダウン（アスペクト比維持）
+  // two_row の場合は行の高さ（contentH/2）を基準にする
+  const baseCardW = CARD_W * cardScale
+  const baseCardH = CARD_H * cardScale
+  const rowH = zoneDef.two_row ? contentH / 2 : contentH
+  const fitScale = Math.min(1, rowH / baseCardH)
+  const cardW = Math.round(baseCardW * fitScale)
+  const cardH = Math.round(baseCardH * fitScale)
 
   const positions = calcCardPositions(
     cards,
@@ -62,6 +70,12 @@ export function ZoneGroup({ zoneDef, x, y, width, height, sourceZoneId }: Props)
 
   // Find which zone contains a point (used for drop target detection)
   const groupRef = useRef<Konva.Group>(null)
+
+  function handleDragStart() {
+    // ZoneGroup 全体を Layer の最前面に移動してドラッグ中のカードが他ゾーンに隠れないようにする
+    groupRef.current?.moveToTop()
+    clearSelection()
+  }
 
   function handleDragEnd(gc: import('../../domain/types').GameCard, dropX: number, dropY: number) {
     // The stage will call findDropTarget — we use a global event
@@ -79,6 +93,10 @@ export function ZoneGroup({ zoneDef, x, y, width, height, sourceZoneId }: Props)
     } else {
       selectCard(gc.instanceId, false)
     }
+  }
+
+  function handleHover(gc: import('../../domain/types').GameCard | null) {
+    setHoveredCard(gc ? { instanceId: gc.instanceId, zoneId: zoneDef.id, cardName: gc.card.name } : null)
   }
 
   function handleContextMenu(
@@ -169,29 +187,29 @@ export function ZoneGroup({ zoneDef, x, y, width, height, sourceZoneId }: Props)
       )}
 
       {/* Cards */}
-      {!zoneDef.pile_mode &&
-        positions.map((pos) => {
-          const gc = cards.find(c => c.instanceId === pos.instanceId)
-          if (!gc) return null
-          return (
-            <CardShape
-              key={gc.instanceId}
-              gc={gc}
-              x={pos.x}
-              y={pos.y}
-              cardW={pos.cardW}
-              cardH={pos.cardH}
-              masked={zoneDef.masked}
-              selected={selectedCardIds.has(gc.instanceId)}
-              draggable={!zoneDef.masked}
-              onTap={handleTap}
-              onContextMenu={handleContextMenu}
-              onBadgeClick={(gc) => openStackDialog(gc, zoneDef.id)}
-              onDragStart={() => clearSelection()}
-              onDragEnd={handleDragEnd}
-            />
-          )
-        })}
+      {!zoneDef.pile_mode && positions.map((pos) => {
+        const gc = cards.find(c => c.instanceId === pos.instanceId)
+        if (!gc) return null
+        return (
+          <CardShape
+            key={gc.instanceId}
+            gc={gc}
+            x={pos.x}
+            y={pos.y}
+            cardW={pos.cardW}
+            cardH={pos.cardH}
+            masked={zoneDef.masked}
+            selected={selectedCardIds.has(gc.instanceId)}
+            draggable={!zoneDef.masked}
+            onTap={handleTap}
+            onContextMenu={handleContextMenu}
+            onBadgeClick={(gc) => openStackDialog(gc, zoneDef.id)}
+            onHover={handleHover}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          />
+        )
+      })}
 
       {/* Neon glow border on hover (simulated with shadow) */}
       <Rect
@@ -202,6 +220,7 @@ export function ZoneGroup({ zoneDef, x, y, width, height, sourceZoneId }: Props)
         shadowColor={colors.border}
         shadowBlur={12}
         shadowOpacity={0.4}
+        listening={false}
       />
     </Group>
   )

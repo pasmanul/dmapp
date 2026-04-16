@@ -32,7 +32,7 @@
       "pile_mode": false,
       "tappable": true,
       "card_scale": 1.2,
-      "two_row": true,
+      "two_row": false,
       "masked": false
     },
     {

@@ -18,6 +18,7 @@ interface Props {
   draggable?: boolean
   onDragStart?: (gc: GameCard) => void
   onDragEnd?: (gc: GameCard, x: number, y: number) => void
+  onHover?: (gc: GameCard | null) => void
 }
 
 const MARKER_COLORS: Record<string, string> = {
@@ -42,6 +43,7 @@ export function CardShape({
   draggable = false,
   onDragStart,
   onDragEnd,
+  onHover,
 }: Props) {
   const resolveUrl = useLibraryStore(s => s.resolveImageUrl)
   const backUrl = useLibraryStore(s => s.cardBackUrl)
@@ -51,19 +53,21 @@ export function CardShape({
   const [img] = useImage(imgUrl)
 
   const rotation = gc.tapped ? 90 : 0
-  // When tapped, the visual width/height swap; adjust offset to keep top-left anchor
-  const offsetX = gc.tapped ? cardH / 2 : cardW / 2
-  const offsetY = gc.tapped ? cardW / 2 : cardH / 2
+  // Konva transform: final_pos = translate(gx,gy) + rotate(local - offset)
+  // For tapped (90deg), Rect center (0,0) must land on (pos.x, pos.y):
+  //   gx = pos.x - cardH/2,  gy = pos.y + cardW/2,  offsetX=cardW/2, offsetY=cardH/2
+  const gx = gc.tapped ? x - cardH / 2 : x + cardW / 2
+  const gy = gc.tapped ? y + cardW / 2 : y + cardH / 2
 
   return (
     <Group
-      x={x + (gc.tapped ? cardH / 2 : cardW / 2)}
-      y={y + cardH / 2}
-      offsetX={gc.tapped ? cardH / 2 : cardW / 2}
+      x={gx}
+      y={gy}
+      offsetX={cardW / 2}
       offsetY={cardH / 2}
       rotation={rotation}
       draggable={draggable}
-      onClick={() => onTap?.(gc)}
+      onClick={(e) => { if (e.evt.button === 0) onTap?.(gc) }}
       onContextMenu={(e) => {
         e.evt.preventDefault()
         const stage = e.target.getStage()
@@ -71,14 +75,16 @@ export function CardShape({
         const pos = stage.getPointerPosition()
         if (pos) onContextMenu?.(gc, pos.x, pos.y)
       }}
+      onMouseEnter={() => onHover?.(gc)}
+      onMouseLeave={() => onHover?.(null)}
       onDragStart={() => onDragStart?.(gc)}
       onDragEnd={(e) => {
         const stage = e.target.getStage()
         if (!stage) return
         const pos = stage.getPointerPosition() ?? { x: e.target.x(), y: e.target.y() }
         // Reset position (zone will re-layout)
-        e.target.x(x + offsetX)
-        e.target.y(y + cardH / 2)
+        e.target.x(gx)
+        e.target.y(gy)
         onDragEnd?.(gc, pos.x, pos.y)
       }}
     >

@@ -73,8 +73,9 @@ export function BoardStage() {
       )
       for (const pos of positions) {
         if (pos.instanceId === instanceId) continue
-        if (dropX >= pos.x && dropX <= pos.x + pos.cardW &&
-            dropY >= pos.y && dropY <= pos.y + pos.cardH) {
+        // pos.x/pos.y はカード中央座標
+        if (dropX >= pos.x - pos.cardW / 2 && dropX <= pos.x + pos.cardW / 2 &&
+            dropY >= pos.y - pos.cardH / 2 && dropY <= pos.y + pos.cardH / 2) {
           stackCard(fromZoneId, instanceId, targetZoneId, pos.instanceId)
           addLog(`進化スタック → ${targetZone.name}`)
           return

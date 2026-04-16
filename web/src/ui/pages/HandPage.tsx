@@ -1,7 +1,5 @@
-import { useEffect } from 'react'
-import { useGameStore } from '../../store/gameStore'
-import { useLayoutStore } from '../../store/layoutStore'
 import { useTabSync } from '../../sync/useTabSync'
+import { useCardHotkeys } from '../hooks/useCardHotkeys'
 import { HandStage } from '../stage/HandStage'
 import { HandHud } from '../hud/HandHud'
 import { ContextMenu } from '../overlays/ContextMenu'
@@ -17,17 +15,10 @@ const CRT_STYLE: React.CSSProperties = {
 
 export function HandPage() {
   useTabSync('hand')
+  useCardHotkeys()
 
-  const initZones = useGameStore(s => s.initZones)
-  const zones = useLayoutStore(s => s.zones)
-
-  useEffect(() => {
-    // Initialize all real zones (state is shared via BroadcastChannel with board tab)
-    const realZoneIds = zones
-      .filter(z => !z.source_zone_id && !z.ui_widget)
-      .map(z => z.id)
-    initZones(realZoneIds)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // initZones は呼ばない — ボードウィンドウが initZones + ダミーデータを管理し
+  // BroadcastChannel (PING/PONG) で状態を同期する
 
   return (
     <div style={{

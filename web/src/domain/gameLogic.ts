@@ -90,7 +90,9 @@ export function initializeField(
   }
   if (!next['deck']) return next
 
-  const shuffled = shuffleArray(deckCards)
+  // 全カードの状態をリセット（face_down, tapped, marker, スタック解除）してからシャッフル
+  const reset = deckCards.map(gc => ({ ...gc, face_down: false, tapped: false, marker: null, under_cards: [] }))
+  const shuffled = shuffleArray(reset)
 
   // 5 shields (face_down)
   const shieldCards = shuffled.splice(0, 5).map(gc => ({ ...gc, face_down: true }))

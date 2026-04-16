@@ -31,8 +31,8 @@ export function DeckPage() {
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
-      width: '100vw',
+      height: '100%',
+      width: '100%',
       background: '#0F0F23',
       overflow: 'hidden',
     }}>

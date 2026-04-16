@@ -21,6 +21,12 @@ interface DeckDropInfo {
   instanceId: string
 }
 
+interface HoveredCardInfo {
+  instanceId: string
+  zoneId: string
+  cardName: string
+}
+
 interface UIStore {
   selectedCardIds: Set<string>
   zoomCard: GameCard | null
@@ -31,6 +37,7 @@ interface UIStore {
   deckDropInfo: DeckDropInfo | null
   actionLog: ActionLogEntry[]
   deckPanelOpen: boolean
+  hoveredCard: HoveredCardInfo | null
 
   selectCard: (instanceId: string, multi: boolean) => void
   clearSelection: () => void
@@ -45,6 +52,7 @@ interface UIStore {
   addLog: (message: string) => void
   openDeckPanel: () => void
   closeDeckPanel: () => void
+  setHoveredCard: (info: HoveredCardInfo | null) => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -57,6 +65,7 @@ export const useUIStore = create<UIStore>((set) => ({
   deckDropInfo: null,
   actionLog: [],
   deckPanelOpen: false,
+  hoveredCard: null,
 
   selectCard: (instanceId, multi) =>
     set((s) => {
@@ -88,6 +97,8 @@ export const useUIStore = create<UIStore>((set) => ({
 
   openDeckPanel: () => set({ deckPanelOpen: true }),
   closeDeckPanel: () => set({ deckPanelOpen: false }),
+
+  setHoveredCard: (info) => set({ hoveredCard: info }),
 
   addLog: (message) =>
     set((s) => ({

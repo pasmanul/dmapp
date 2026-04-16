@@ -9,7 +9,6 @@ export interface CardPosition {
 }
 
 const PADDING = 8
-const MIN_SPACING = 16
 
 function layoutRow(
   cards: GameCard[],
@@ -27,33 +26,39 @@ function layoutRow(
   const totalNatural = cards.reduce((sum, gc) => sum + (gc.tapped ? cardH : cardW), 0)
   const availW = areaW - PADDING * 2
 
-  let positions: number[]
-  if (totalNatural + (n - 1) * MIN_SPACING <= availW) {
-    // Cards fit with natural spacing
-    const spacing = n > 1 ? (availW - totalNatural) / (n - 1) : 0
-    let x = areaX + PADDING
-    positions = cards.map(gc => {
-      const pos = x
-      x += (gc.tapped ? cardH : cardW) + spacing
-      return pos
+  // pos.x/pos.y はカード中央座標（CardShape の Group offset 設計に合わせる）
+  // 収まる場合は中央揃え・隙間なし、収まらない場合は重なり
+  let centers: number[]
+  if (totalNatural <= availW) {
+    // 中央揃え（間隔0）
+    const startX = areaX + (areaW - totalNatural) / 2
+    let x = startX
+    centers = cards.map(gc => {
+      const w = gc.tapped ? cardH : cardW
+      const cx = x + w / 2
+      x += w
+      return cx
     })
   } else {
-    // Overlap cards
-    const overlap = n > 1 ? Math.max(MIN_SPACING, (availW - (cards[n - 1].tapped ? cardH : cardW)) / (n - 1)) : 0
+    // 収まらない場合：等間隔で重なり（最後のカードが右端に収まる）
+    const lastW = cards[n - 1].tapped ? cardH : cardW
+    const overlap = n > 1 ? (availW - lastW) / (n - 1) : availW
     let x = areaX + PADDING
-    positions = cards.map((gc, i) => {
-      const pos = x
+    centers = cards.map((gc, i) => {
+      const w = gc.tapped ? cardH : cardW
+      const cx = x + w / 2
       if (i < n - 1) x += overlap
-      else x += gc.tapped ? cardH : cardW
-      return pos
+      else x += w
+      return cx
     })
   }
 
-  const cy = areaY + (areaH - cardH) / 2
+  // カード中央をゾーンのコンテンツ領域中央に揃える
+  const cy = areaY + areaH / 2
 
   return cards.map((gc, i) => ({
     instanceId: gc.instanceId,
-    x: positions[i],
+    x: centers[i],
     y: cy,
     cardW,
     cardH,

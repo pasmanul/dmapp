@@ -2,11 +2,13 @@ import { useGameStore } from '../../store/gameStore'
 import { useUIStore } from '../../store/uiStore'
 import { useLibraryStore } from '../../store/libraryStore'
 import { newGameCard } from '../../domain/gameLogic'
+import type { GameCard } from '../../domain/types'
 
 export function HandHud() {
-  const { initializeField, undo } = useGameStore(s => ({
+  const { initializeField, undo, zones } = useGameStore(s => ({
     initializeField: s.initializeField,
     undo: s.undo,
+    zones: s.zones,
   }))
   const { openDialog, addLog } = useUIStore(s => ({
     openDialog: s.openDialog,
@@ -18,13 +20,25 @@ export function HandHud() {
     deckName: s.deckName,
   }))
 
+  function flattenCards(gcs: GameCard[]): GameCard[] {
+    return gcs.flatMap(gc => [gc, ...flattenCards(gc.under_cards)])
+  }
+
   function handleInit() {
-    const cardMap = new Map(cards.map(c => [c.id, c]))
-    const deckCards = currentDeck.flatMap(entry => {
-      const card = cardMap.get(entry.cardId)
-      if (!card) return []
-      return Array.from({ length: entry.count }, () => newGameCard(card))
-    })
+    let deckCards: GameCard[]
+
+    if (cards.length === 0) {
+      // ライブラリ未ロード（ダミーモード）: 全ゾーンのカードを集めて使う
+      deckCards = Object.values(zones).flatMap(zone => flattenCards(zone.cards))
+    } else {
+      const cardMap = new Map(cards.map(c => [c.id, c]))
+      deckCards = currentDeck.flatMap(entry => {
+        const card = cardMap.get(entry.cardId)
+        if (!card) return []
+        return Array.from({ length: entry.count }, () => newGameCard(card))
+      })
+    }
+
     if (deckCards.length === 0) {
       addLog('デッキが空です')
       return

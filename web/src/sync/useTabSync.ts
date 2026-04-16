@@ -32,6 +32,8 @@ export function useTabSync(role: TabRole) {
   const channelRef = useRef<BroadcastChannel | null>(null)
   const applySnapshot = useGameStore(s => s._applySnapshot)
   const zonesRef = useRef(useGameStore.getState().zones)
+  // リモートからの受信中はbroadcastを抑制して無限ループを防ぐ
+  const isApplyingRemoteRef = useRef(false)
 
   // Keep zonesRef up to date
   useEffect(() => {
@@ -49,7 +51,9 @@ export function useTabSync(role: TabRole) {
       if (msg.from === role) return  // ignore own messages
 
       if (msg.type === 'STATE_UPDATE') {
+        isApplyingRemoteRef.current = true
         applySnapshot(msg.snapshot)
+        isApplyingRemoteRef.current = false
       }
 
       if (msg.type === 'PING') {
@@ -64,7 +68,9 @@ export function useTabSync(role: TabRole) {
       }
 
       if (msg.type === 'PONG') {
+        isApplyingRemoteRef.current = true
         applySnapshot(msg.snapshot)
+        isApplyingRemoteRef.current = false
       }
     }
 
@@ -79,6 +85,7 @@ export function useTabSync(role: TabRole) {
   useEffect(() => {
     return useGameStore.subscribe((s) => {
       if (!channelRef.current) return
+      if (isApplyingRemoteRef.current) return  // リモート更新中はbroadcastしない
       const msg: StateUpdateMsg = {
         type: 'STATE_UPDATE',
         from: role,

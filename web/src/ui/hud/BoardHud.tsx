@@ -1,12 +1,51 @@
 import { useGameStore } from '../../store/gameStore'
 import { useUIStore } from '../../store/uiStore'
+import { useLibraryStore } from '../../store/libraryStore'
+import { newGameCard } from '../../domain/gameLogic'
+import type { GameCard } from '../../domain/types'
 
 export function BoardHud() {
-  const undo = useGameStore(s => s.undo)
-  const { openDialog, openDeckPanel } = useUIStore(s => ({
+  const { undo, initializeField, zones } = useGameStore(s => ({
+    undo: s.undo,
+    initializeField: s.initializeField,
+    zones: s.zones,
+  }))
+  const { openDialog, openDeckPanel, addLog } = useUIStore(s => ({
     openDialog: s.openDialog,
     openDeckPanel: s.openDeckPanel,
+    addLog: s.addLog,
   }))
+  const { cards, currentDeck } = useLibraryStore(s => ({
+    cards: s.cards,
+    currentDeck: s.currentDeck,
+  }))
+
+  function flattenCards(gcs: GameCard[]): GameCard[] {
+    return gcs.flatMap(gc => [gc, ...flattenCards(gc.under_cards)])
+  }
+
+  function handleInit() {
+    let deckCards: GameCard[]
+
+    if (cards.length === 0) {
+      // ライブラリ未ロード（ダミーモード）: 全ゾーンのカードを集めて使う
+      deckCards = Object.values(zones).flatMap(zone => flattenCards(zone.cards))
+    } else {
+      const cardMap = new Map(cards.map(c => [c.id, c]))
+      deckCards = currentDeck.flatMap(entry => {
+        const card = cardMap.get(entry.cardId)
+        if (!card) return []
+        return Array.from({ length: entry.count }, () => newGameCard(card))
+      })
+    }
+
+    if (deckCards.length === 0) {
+      addLog('デッキが空です')
+      return
+    }
+    initializeField(deckCards)
+    addLog(`フィールド初期化 — ${deckCards.length}枚`)
+  }
 
   const btn: React.CSSProperties = {
     fontFamily: "'Press Start 2P', monospace",
@@ -36,6 +75,15 @@ export function BoardHud() {
       }}>
         TCG SIM
       </span>
+
+      <button
+        style={{ ...btn, background: 'linear-gradient(135deg, #7C3AED, #5B21B6)', color: '#fff', border: 'none' }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+        onClick={handleInit}
+      >
+        INIT FIELD
+      </button>
 
       <button
         style={{ ...btn, background: '#0e1440', color: '#a0b8ff', border: '1px solid #283880' }}
