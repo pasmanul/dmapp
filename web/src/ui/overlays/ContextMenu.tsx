@@ -3,13 +3,14 @@ import { useUIStore } from '../../store/uiStore'
 import { useGameStore } from '../../store/gameStore'
 
 const ZONES = [
-  { id: 'battle', label: 'バトルゾーン' },
-  { id: 'mana', label: 'マナゾーン' },
-  { id: 'graveyard', label: '墓地' },
-  { id: 'shield', label: 'シールド' },
-  { id: 'hand', label: '手札' },
-  { id: 'temp', label: '保留' },
-  { id: 'deck', label: '山札（上）' },
+  { id: 'battle', label: 'バトルゾーン', toIndex: undefined as number | undefined },
+  { id: 'mana', label: 'マナゾーン', toIndex: undefined },
+  { id: 'graveyard', label: '墓地', toIndex: undefined },
+  { id: 'shield', label: 'シールド', toIndex: undefined },
+  { id: 'hand', label: '手札', toIndex: undefined },
+  { id: 'temp', label: '保留', toIndex: undefined },
+  { id: 'deck', label: '山札（上）', toIndex: 0 },
+  { id: 'deck', label: '山札（下）', toIndex: undefined },
 ]
 
 const MARKERS = [
@@ -169,15 +170,14 @@ export function ContextMenu() {
       ))}
 
       <div style={labelStyle}>ゾーン移動</div>
-      {ZONES.filter(z => z.id !== zoneId).map(z => (
+      {ZONES.filter(z => z.id !== zoneId).map((z, i) => (
         <div
-          key={z.id}
+          key={`${z.id}-${i}`}
           style={itemStyle}
           onMouseEnter={e => (e.currentTarget.style.background = 'rgba(124,58,237,0.15)')}
           onMouseLeave={e => (e.currentTarget.style.background = '')}
           onClick={() => action(() => {
-            const toIndex = z.id === 'deck' ? 0 : undefined  // deck top
-            moveCard(zoneId, cardInstanceId, z.id, toIndex)
+            moveCard(zoneId, cardInstanceId, z.id, z.toIndex)
             addLog(`${card.card.name} → ${z.label}`)
           })}
         >

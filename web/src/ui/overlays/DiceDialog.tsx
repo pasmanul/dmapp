@@ -46,6 +46,19 @@ export function DiceDialog() {
     }, 30)
   }, [rolling, sides, addLog])
 
+  // Enter / Space キーでロール（ダイアログが開いている間のみ）
+  useEffect(() => {
+    if (activeDialog !== 'dice') return
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        roll()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [activeDialog, roll])
+
   if (activeDialog !== 'dice') return null
 
   const overlay: React.CSSProperties = {

@@ -12,6 +12,7 @@ import { SearchDialog } from '../overlays/SearchDialog'
 import { DiceDialog } from '../overlays/DiceDialog'
 import { StackDialog } from '../overlays/StackDialog'
 import { SaveLoadDialog } from '../overlays/SaveLoadDialog'
+import { DeckDropDialog } from '../overlays/DeckDropDialog'
 import { DeckPage } from './DeckPage'
 
 // CRT scanline overlay style
@@ -73,6 +74,7 @@ export function BoardPage() {
       <DiceDialog />
       <StackDialog />
       <SaveLoadDialog />
+      <DeckDropDialog />
 
       {/* デッキビルダーパネル */}
       {deckPanelOpen && (

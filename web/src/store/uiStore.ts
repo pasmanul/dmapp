@@ -16,6 +16,11 @@ interface StackInfo {
   zoneId: string
 }
 
+interface DeckDropInfo {
+  fromZoneId: string
+  instanceId: string
+}
+
 interface UIStore {
   selectedCardIds: Set<string>
   zoomCard: GameCard | null
@@ -23,6 +28,7 @@ interface UIStore {
   contextMenu: ContextMenuState | null
   activeDialog: DialogType
   stackInfo: StackInfo | null
+  deckDropInfo: DeckDropInfo | null
   actionLog: ActionLogEntry[]
   deckPanelOpen: boolean
 
@@ -35,6 +41,7 @@ interface UIStore {
   closeDialog: () => void
   openStackDialog: (gc: GameCard, zoneId: string) => void
   closeStackDialog: () => void
+  setDeckDropInfo: (info: DeckDropInfo | null) => void
   addLog: (message: string) => void
   openDeckPanel: () => void
   closeDeckPanel: () => void
@@ -47,6 +54,7 @@ export const useUIStore = create<UIStore>((set) => ({
   contextMenu: null,
   activeDialog: null,
   stackInfo: null,
+  deckDropInfo: null,
   actionLog: [],
   deckPanelOpen: false,
 
@@ -75,6 +83,8 @@ export const useUIStore = create<UIStore>((set) => ({
 
   openStackDialog: (gc, zoneId) => set({ stackInfo: { gc, zoneId } }),
   closeStackDialog: () => set({ stackInfo: null }),
+
+  setDeckDropInfo: (info) => set({ deckDropInfo: info }),
 
   openDeckPanel: () => set({ deckPanelOpen: true }),
   closeDeckPanel: () => set({ deckPanelOpen: false }),

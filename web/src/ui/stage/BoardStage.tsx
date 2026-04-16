@@ -19,6 +19,7 @@ export function BoardStage() {
   const moveCard = useGameStore(s => s.moveCard)
   const stackCard = useGameStore(s => s.stackCard)
   const addLog = useUIStore(s => s.addLog)
+  const setDeckDropInfo = useUIStore(s => s.setDeckDropInfo)
   const closeContextMenu = useUIStore(s => s.closeContextMenu)
 
   // Handle card-drop events from ZoneGroup dragging
@@ -81,12 +82,18 @@ export function BoardStage() {
       }
     }
 
+    // 山札へのドロップは上/下選択ダイアログへ委譲
+    if (targetZoneId === 'deck' && fromZoneId !== 'deck') {
+      setDeckDropInfo({ fromZoneId, instanceId })
+      return
+    }
+
     // Regular zone move
     if (targetZoneId !== fromZoneId) {
       moveCard(fromZoneId, instanceId, targetZoneId)
       addLog(`カード移動 → ${targetZone?.name}`)
     }
-  }, [zoneDefs, winDef, size, zones, moveCard, stackCard, addLog])
+  }, [zoneDefs, winDef, size, zones, moveCard, stackCard, addLog, setDeckDropInfo])
 
   useEffect(() => {
     window.addEventListener('card-drop', handleCardDrop)
