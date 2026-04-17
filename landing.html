@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TCG Simulator — Play Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&family=Chakra+Petch:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0F0F23;
+      --bg2:         #080818;
+      --purple:      #7C3AED;
+      --purple-lite: #A78BFA;
+      --cyan:        #00FFFF;
+      --pink:        #FF006E;
+      --neon-blue:   #0080FF;
+      --text:        #E2E8F0;
+      --muted:       #94A3B8;
+      --card-bg:     rgba(124,58,237,0.08);
+      --border:      rgba(124,58,237,0.30);
+      --glow-purple: 0 0 20px rgba(124,58,237,0.7), 0 0 60px rgba(124,58,237,0.3);
+      --glow-cyan:   0 0 20px rgba(0,255,255,0.7), 0 0 60px rgba(0,255,255,0.3);
+      --glow-pink:   0 0 20px rgba(255,0,110,0.7), 0 0 60px rgba(255,0,110,0.3);
+      --scanline-opacity: 0.03;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Chakra Petch', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── CRT Scanlines overlay ─────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,var(--scanline-opacity)) 2px,
+        rgba(0,0,0,var(--scanline-opacity)) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Retro grid background ─────────────────────────────────── */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,58,237,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,0.07) 1px, transparent 1px);
+      background-size: 40px 40px;
+      perspective: 600px;
+      pointer-events: none;
+    }
+
+    /* ── Neon text ─────────────────────────────────────────────── */
+    .neon-purple { color: var(--purple-lite); text-shadow: var(--glow-purple); }
+    .neon-cyan   { color: var(--cyan);        text-shadow: var(--glow-cyan); }
+    .neon-pink   { color: var(--pink);        text-shadow: var(--glow-pink); }
+
+    /* ── Glitch animation ──────────────────────────────────────── */
+    @keyframes glitch {
+      0%   { clip-path: inset(0 0 96% 0); transform: skewX(0deg); }
+      5%   { clip-path: inset(20% 0 60% 0); transform: skewX(-4deg); }
+      10%  { clip-path: inset(50% 0 30% 0); transform: skewX(3deg); }
+      15%  { clip-path: inset(80% 0 5% 0); transform: skewX(-2deg); }
+      20%  { clip-path: inset(0 0 0 0); transform: skewX(0deg); }
+      100% { clip-path: inset(0 0 0 0); transform: skewX(0deg); }
+    }
+
+    @keyframes glitch2 {
+      0%   { clip-path: inset(0 0 96% 0); transform: skewX(0deg) translateX(4px); }
+      5%   { clip-path: inset(30% 0 40% 0); transform: skewX(4deg) translateX(-4px); }
+      10%  { clip-path: inset(60% 0 20% 0); transform: skewX(-3deg) translateX(2px); }
+      15%  { clip-path: inset(85% 0 0% 0); transform: skewX(2deg) translateX(-2px); }
+      20%  { clip-path: inset(0 0 0 0); transform: skewX(0deg) translateX(0); }
+      100% { clip-path: inset(0 0 0 0); transform: skewX(0deg) translateX(0); }
+    }
+
+    .glitch-wrap { position: relative; display: inline-block; }
+    .glitch-wrap::before,
+    .glitch-wrap::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      font-size: inherit;
+      font-family: inherit;
+      font-weight: inherit;
+      line-height: inherit;
+    }
+    .glitch-wrap::before {
+      color: var(--cyan);
+      text-shadow: var(--glow-cyan);
+      animation: glitch 4s infinite;
+      animation-delay: 0.2s;
+    }
+    .glitch-wrap::after {
+      color: var(--pink);
+      text-shadow: var(--glow-pink);
+      animation: glitch2 4s infinite;
+      animation-delay: 0.5s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotateY(0deg); }
+      50%       { transform: translateY(-16px) rotateY(8deg); }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: var(--glow-purple); }
+      50%       { box-shadow: 0 0 40px rgba(124,58,237,0.9), 0 0 100px rgba(124,58,237,0.5); }
+    }
+
+    @keyframes scanH {
+      0%   { top: -10%; }
+      100% { top: 110%; }
+    }
+
+    /* ── Navbar ────────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 16px; left: 16px; right: 16px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: rgba(8,8,24,0.85);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .nav-logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: var(--cyan);
+      text-shadow: var(--glow-cyan);
+      text-decoration: none;
+      letter-spacing: 1px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      transition: color 200ms, text-shadow 200ms;
+      cursor: pointer;
+    }
+
+    .nav-links a:hover { color: var(--cyan); text-shadow: var(--glow-cyan); }
+
+    .nav-cta {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      padding: 10px 20px;
+      background: transparent;
+      color: var(--pink);
+      border: 1px solid var(--pink);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 200ms, box-shadow 200ms;
+      text-decoration: none;
+    }
+
+    .nav-cta:hover {
+      background: rgba(255,0,110,0.15);
+      box-shadow: var(--glow-pink);
+    }
+
+    /* ── Hero ──────────────────────────────────────────────────── */
+    #hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      padding: 120px 5% 80px;
+    }
+
+    .hero-scan {
+      position: absolute;
+      left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.6;
+      animation: scanH 3s linear infinite;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      flex: 1;
+      max-width: 600px;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      padding: 6px 14px;
+      border: 1px solid var(--cyan);
+      border-radius: 999px;
+      color: var(--cyan);
+      text-shadow: var(--glow-cyan);
+      margin-bottom: 28px;
+      letter-spacing: 1px;
+    }
+
+    .hero-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(20px, 3.5vw, 42px);
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 40px;
+      max-width: 480px;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--purple), #5B21B6);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 150ms, box-shadow 200ms;
+      text-decoration: none;
+      display: inline-block;
+      animation: pulse-glow 3s ease-in-out infinite;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(124,58,237,0.6);
+    }
+
+    .btn-secondary {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 14px 28px;
+      background: transparent;
+      color: var(--purple-lite);
+      border: 1px solid var(--purple);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 200ms, box-shadow 200ms, transform 150ms;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(124,58,237,0.15);
+      box-shadow: var(--glow-purple);
+      transform: translateY(-2px);
+    }
+
+    .hero-visual {
+      position: relative;
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 480px;
+    }
+
+    /* ── 3D Card stack ─────────────────────────────────────────── */
+    .card-3d-wrap {
+      position: relative;
+      width: 220px;
+      height: 300px;
+      transform-style: preserve-3d;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    .card-3d {
+      position: absolute;
+      width: 180px;
+      height: 260px;
+      border-radius: 12px;
+      border: 2px solid;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      letter-spacing: 1px;
+      box-shadow: 0 0 30px currentColor;
+    }
+
+    .card-3d:nth-child(1) {
+      background: linear-gradient(135deg, #1e0a1e, #0d0515);
+      border-color: var(--purple);
+      color: var(--purple-lite);
+      transform: rotateY(-10deg) rotateX(5deg) translateZ(0px);
+      left: 40px; top: 0;
+    }
+
+    .card-3d:nth-child(2) {
+      background: linear-gradient(135deg, #0a1a2a, #040c18);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      transform: rotateY(-5deg) rotateX(3deg) translateZ(-20px);
+      left: 20px; top: 16px;
+    }
+
+    .card-3d:nth-child(3) {
+      background: linear-gradient(135deg, #1a0a10, #0d0508);
+      border-color: var(--pink);
+      color: var(--pink);
+      transform: rotateY(0deg) rotateX(1deg) translateZ(-40px);
+      left: 0; top: 32px;
+    }
+
+    .card-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 0 10px currentColor);
+    }
+
+    .card-name {
+      font-size: 14px;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .card-cost {
+      position: absolute;
+      top: 10px; right: 10px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: currentColor;
+      color: var(--bg);
+    }
+
+    /* ── Floating particles ────────────────────────────────────── */
+    .particles {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      opacity: 0;
+      animation: particleFade 4s ease-in-out infinite;
+    }
+
+    @keyframes particleFade {
+      0%   { opacity: 0; transform: translateY(0); }
+      20%  { opacity: 1; }
+      80%  { opacity: 0.6; }
+      100% { opacity: 0; transform: translateY(-80px); }
+    }
+
+    /* ── Stats bar ─────────────────────────────────────────────── */
+    .stats-bar {
+      display: flex;
+      gap: 0;
+      justify-content: center;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: rgba(124,58,237,0.05);
+      padding: 24px 5%;
+    }
+
+    .stat-item {
+      flex: 1;
+      min-width: 140px;
+      text-align: center;
+      padding: 16px 24px;
+      border-right: 1px solid var(--border);
+    }
+
+    .stat-item:last-child { border-right: none; }
+
+    .stat-num {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 20px;
+      color: var(--cyan);
+      text-shadow: var(--glow-cyan);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* ── Section base ──────────────────────────────────────────── */
+    section {
+      position: relative;
+      padding: 100px 5%;
+      overflow: hidden;
+    }
+
+    .section-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--pink);
+      text-shadow: var(--glow-pink);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .section-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(16px, 2.5vw, 28px);
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .section-desc {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 520px;
+      margin-bottom: 60px;
+    }
+
+    /* ── Carousel ──────────────────────────────────────────────── */
+    #showcase { background: var(--bg2); }
+
+    .carousel-wrapper { position: relative; overflow: hidden; }
+
+    .carousel-track {
+      display: flex;
+      gap: 20px;
+      transition: transform 500ms cubic-bezier(0.25, 0.1, 0.25, 1);
+      will-change: transform;
+    }
+
+    .carousel-card {
+      flex: 0 0 320px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 200ms, border-color 200ms, box-shadow 200ms;
+    }
+
+    .carousel-card:hover {
+      transform: translateY(-8px);
+      border-color: var(--purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .carousel-card-img {
+      height: 180px;
+      background: linear-gradient(135deg, #1a0a2e, #0a1428);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 64px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .carousel-card-img::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px
+      );
+    }
+
+    .carousel-card-body { padding: 20px; }
+
+    .carousel-card-title {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      color: var(--text);
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .carousel-card-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+
+    .carousel-tag {
+      display: inline-block;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-right: 6px;
+      border: 1px solid;
+    }
+
+    .tag-fire   { color: #FF6040; border-color: #FF6040; background: rgba(255,96,64,0.12); }
+    .tag-water  { color: var(--cyan); border-color: var(--cyan); background: rgba(0,255,255,0.08); }
+    .tag-nature { color: #44EE88; border-color: #44EE88; background: rgba(68,238,136,0.08); }
+    .tag-dark   { color: var(--purple-lite); border-color: var(--purple); background: rgba(124,58,237,0.12); }
+    .tag-light  { color: #FFDD66; border-color: #FFDD66; background: rgba(255,221,102,0.08); }
+
+    .carousel-controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 28px;
+      align-items: center;
+    }
+
+    .carousel-btn {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 200ms, color 200ms, box-shadow 200ms;
+    }
+
+    .carousel-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+      box-shadow: var(--glow-cyan);
+    }
+
+    .carousel-dots {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .carousel-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      cursor: pointer;
+      transition: background 200ms, box-shadow 200ms, width 200ms;
+    }
+
+    .carousel-dot.active {
+      background: var(--cyan);
+      box-shadow: var(--glow-cyan);
+      width: 24px;
+      border-radius: 4px;
+    }
+
+    /* ── Features ──────────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      transition: transform 200ms, border-color 200ms, box-shadow 200ms;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--purple), transparent);
+      opacity: 0;
+      transition: opacity 300ms;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      width: 52px; height: 52px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    .feature-title {
+      font-family: 'VT323', monospace;
+      font-size: 22px;
+      color: var(--text);
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* ── Community ─────────────────────────────────────────────── */
+    #community { background: var(--bg2); }
+
+    .community-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .community-grid { grid-template-columns: 1fr; }
+      nav .nav-links { display: none; }
+    }
+
+    .community-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: border-color 200ms, box-shadow 200ms;
+    }
+
+    .community-card:hover {
+      border-color: var(--pink);
+      box-shadow: var(--glow-pink);
+    }
+
+    .community-card-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .community-name {
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      color: var(--text);
+    }
+
+    .community-handle {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .community-text {
+      font-size: 13px;
+      color: #CBD5E1;
+      line-height: 1.7;
+    }
+
+    .community-meta {
+      margin-top: 14px;
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .community-meta span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── Download CTA ──────────────────────────────────────────── */
+    #download {
+      text-align: center;
+      background: linear-gradient(180deg, var(--bg) 0%, #12082a 50%, var(--bg) 100%);
+    }
+
+    .download-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .download-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: clamp(14px, 2.5vw, 26px);
+      line-height: 1.8;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .download-sub {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 48px;
+      position: relative;
+    }
+
+    .download-btns {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      position: relative;
+    }
+
+    .btn-download {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: transform 150ms, box-shadow 200ms;
+      cursor: pointer;
+    }
+
+    .btn-download:hover { transform: translateY(-3px); }
+
+    .btn-download-win {
+      background: linear-gradient(135deg, var(--purple), #5B21B6);
+      color: #fff;
+      border: none;
+    }
+
+    .btn-download-win:hover { box-shadow: 0 8px 40px rgba(124,58,237,0.6); }
+
+    .btn-download-src {
+      background: transparent;
+      color: var(--cyan);
+      border: 1px solid var(--cyan);
+    }
+
+    .btn-download-src:hover { box-shadow: var(--glow-cyan); background: rgba(0,255,255,0.08); }
+
+    .btn-download-icon {
+      width: 32px; height: 32px;
+      flex-shrink: 0;
+    }
+
+    .btn-download-text { text-align: left; }
+    .btn-download-sub { font-size: 10px; opacity: 0.7; display: block; }
+    .btn-download-main { font-family: 'Press Start 2P', monospace; font-size: 10px; display: block; margin-top: 2px; }
+
+    /* ── Footer ────────────────────────────────────────────────── */
+    footer {
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      padding: 40px 5%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .footer-logo {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--cyan);
+      text-shadow: var(--glow-cyan);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 200ms;
+      cursor: pointer;
+    }
+
+    .footer-links a:hover { color: var(--cyan); }
+
+    .footer-copy {
+      font-family: 'VT323', monospace;
+      font-size: 16px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    /* ── SVG icons (inline) ────────────────────────────────────── */
+    .icon { display: inline-block; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav>
+  <a href="#" class="nav-logo">TCG&nbsp;SIM</a>
+  <ul class="nav-links">
+    <li><a href="#showcase">CARDS</a></li>
+    <li><a href="#features">FEATURES</a></li>
+    <li><a href="#community">COMMUNITY</a></li>
+    <li><a href="#download">DOWNLOAD</a></li>
+  </ul>
+  <a href="#download" class="nav-cta">PLAY NOW</a>
+</nav>
+
+<!-- Hero -->
+<section id="hero">
+  <div class="grid-bg"></div>
+  <div class="hero-scan"></div>
+
+  <!-- Particles -->
+  <div class="particles" id="particles"></div>
+
+  <div class="hero-content">
+    <span class="hero-badge">⚡ NOW IN BETA</span>
+    <h1 class="hero-title">
+      <span class="glitch-wrap" data-text="BUILD YOUR">BUILD YOUR</span><br>
+      <span class="neon-cyan">ULTIMATE</span><br>
+      DECK ONLINE
+    </h1>
+    <p class="hero-sub">
+      汎用カードゲームシミュレーター。オリジナルデッキを組み、フィールドを支配せよ。
+      ブラウザ完結、インストール不要。
+    </p>
+    <div class="hero-btns">
+      <a href="#download" class="btn-primary">PLAY FREE</a>
+      <a href="#showcase" class="btn-secondary">VIEW CARDS</a>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="card-3d-wrap">
+      <div class="card-3d" style="animation-delay:0.1s">
+        <span class="card-cost">7</span>
+        <div class="card-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </div>
+        <div class="card-name">VOID DRAGON<br>EMPEROR</div>
+      </div>
+      <div class="card-3d">
+        <span class="card-cost">5</span>
+        <div class="card-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00FFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
+          </svg>
+        </div>
+        <div class="card-name">OCEAN<br>GUARDIAN</div>
+      </div>
+      <div class="card-3d">
+        <span class="card-cost">3</span>
+        <div class="card-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#FF006E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+          </svg>
+        </div>
+        <div class="card-name">INFERNO<br>STRIKER</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <span class="stat-num">40+</span>
+    <span class="stat-label">Cards Per Deck</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num">5</span>
+    <span class="stat-label">Civilizations</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num">8</span>
+    <span class="stat-label">Zone Types</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num">FREE</span>
+    <span class="stat-label">Always</span>
+  </div>
+</div>
+
+<!-- Showcase Carousel -->
+<section id="showcase">
+  <div class="grid-bg" style="opacity:0.4;"></div>
+  <span class="section-label">CARD SHOWCASE</span>
+  <h2 class="section-title">MASTER ALL<br><span class="neon-purple">5 CIVILIZATIONS</span></h2>
+  <p class="section-desc">火・水・自然・闇・光。それぞれの文明が固有の戦略を持つ。組み合わせてシナジーを生み出せ。</p>
+
+  <div class="carousel-wrapper">
+    <div class="carousel-track" id="carouselTrack">
+
+      <div class="carousel-card">
+        <div class="carousel-card-img" style="background:linear-gradient(135deg,#2c0a10,#0d0506);">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#FF6040" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 12px #FF6040)">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+          </svg>
+        </div>
+        <div class="carousel-card-body">
+          <div class="carousel-card-title">FIRE CIVILIZATION</div>
+          <div class="carousel-card-desc">高い攻撃力と速攻戦術。スピードアタッカーで相手の守りを突き崩す。</div>
+          <span class="carousel-tag tag-fire">SPEED</span>
+          <span class="carousel-tag tag-fire">AGGRO</span>
+        </div>
+      </div>
+
+      <div class="carousel-card">
+        <div class="carousel-card-img" style="background:linear-gradient(135deg,#041020,#03080e);">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#44AAFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 12px #44AAFF)">
+            <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
+          </svg>
+        </div>
+        <div class="carousel-card-body">
+          <div class="carousel-card-title">WATER CIVILIZATION</div>
+          <div class="carousel-card-desc">豊富なドロー力とバウンス。手札を整えながら相手の場を崩すコントロール戦術。</div>
+          <span class="carousel-tag tag-water">DRAW</span>
+          <span class="carousel-tag tag-water">CONTROL</span>
+        </div>
+      </div>
+
+      <div class="carousel-card">
+        <div class="carousel-card-img" style="background:linear-gradient(135deg,#082214,#040e06);">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#66DD88" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 12px #66DD88)">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+          </svg>
+        </div>
+        <div class="carousel-card-body">
+          <div class="carousel-card-title">NATURE CIVILIZATION</div>
+          <div class="carousel-card-desc">マナ加速とコスト踏み倒し。大型クリーチャーを早期召喚するランプ戦術。</div>
+          <span class="carousel-tag tag-nature">MANA</span>
+          <span class="carousel-tag tag-nature">RAMP</span>
+        </div>
+      </div>
+
+      <div class="carousel-card">
+        <div class="carousel-card-img" style="background:linear-gradient(135deg,#1a0a28,#09040e);">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#CC66EE" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 12px #CC66EE)">
+            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </div>
+        <div class="carousel-card-body">
+          <div class="carousel-card-title">DARKNESS CIVILIZATION</div>
+          <div class="carousel-card-desc">ハンデスと除去の闇。相手の手札と場を破壊しながら戦場を支配する。</div>
+          <span class="carousel-tag tag-dark">DISCARD</span>
+          <span class="carousel-tag tag-dark">DESTROY</span>
+        </div>
+      </div>
+
+      <div class="carousel-card">
+        <div class="carousel-card-img" style="background:linear-gradient(135deg,#221c06,#0e0b04);">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#FFDD66" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 12px #FFDD66)">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </div>
+        <div class="carousel-card-body">
+          <div class="carousel-card-title">LIGHT CIVILIZATION</div>
+          <div class="carousel-card-desc">シールドトリガーと全タップ。守りを固めながら相手の攻撃を完全無効化。</div>
+          <span class="carousel-tag tag-light">SHIELD</span>
+          <span class="carousel-tag tag-light">BLOCKER</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="carousel-controls">
+    <button class="carousel-btn" id="carouselPrev" aria-label="前へ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="carousel-btn" id="carouselNext" aria-label="次へ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <div class="carousel-dots" id="carouselDots"></div>
+  </div>
+</section>
+
+<!-- Features -->
+<section id="features">
+  <span class="section-label">FEATURES</span>
+  <h2 class="section-title">EVERYTHING YOU NEED<br><span class="neon-pink">TO DOMINATE</span></h2>
+  <p class="section-desc">完全カスタマイズ可能なシミュレーター。本格プレイに必要なすべてを搭載。</p>
+
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+      </div>
+      <div class="feature-title">DRAG & DROP FIELD</div>
+      <div class="feature-desc">直感的なドラッグ&ドロップでカードを配置。バトルゾーン・マナゾーン・シールドを自由に操作。</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(0,255,255,0.08);border:1px solid rgba(0,255,255,0.25);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>
+        </svg>
+      </div>
+      <div class="feature-title">DECK BUILDER</div>
+      <div class="feature-desc">カードライブラリから40枚デッキを構築。文明・タイプ・コストでフィルタリング。デッキ保存対応。</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(255,0,110,0.08);border:1px solid rgba(255,0,110,0.25);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF006E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
+        </svg>
+      </div>
+      <div class="feature-title">UNDO SYSTEM</div>
+      <div class="feature-desc">最大50手のアンドゥ機能。誤操作も即リカバリー。履歴はアクションログで確認可能。</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(68,238,136,0.08);border:1px solid rgba(68,238,136,0.25);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#44EE88" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>
+        </svg>
+      </div>
+      <div class="feature-title">CUSTOM LAYOUT</div>
+      <div class="feature-desc">グリッドエディタでゾーンを自由に配置。ウィンドウ構成・カラム数もgame.jsonで完全カスタマイズ。</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(255,221,102,0.08);border:1px solid rgba(255,221,102,0.25);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFDD66" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
+        </svg>
+      </div>
+      <div class="feature-title">MULTI-WINDOW</div>
+      <div class="feature-desc">フィールドと手札を別ウィンドウで表示。デュアルモニター完全対応でプレイ体験を向上。</div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon" style="background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.25);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/>
+        </svg>
+      </div>
+      <div class="feature-title">SAVE & RESTORE</div>
+      <div class="feature-desc">ゲーム状態をいつでもセーブ。中断・再開・巻き戻しも自在。JSON形式で完全管理。</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Community -->
+<section id="community">
+  <div class="grid-bg" style="opacity:0.3;"></div>
+  <span class="section-label">COMMUNITY</span>
+  <h2 class="section-title">JOIN THE<br><span class="neon-cyan">DUELISTS</span></h2>
+  <p class="section-desc">世界中のプレイヤーとデッキを共有。最新の環境デッキ情報をチェックせよ。</p>
+
+  <div class="community-grid">
+
+    <div class="community-card">
+      <div class="community-card-head">
+        <div class="avatar" style="background:rgba(124,58,237,0.25);color:#A78BFA;border:1px solid #7C3AED;">DK</div>
+        <div>
+          <div class="community-name">DarkKnight_X</div>
+          <div class="community-handle">@dk_x · 2時間前</div>
+        </div>
+      </div>
+      <div class="community-text">
+        闇火デッキ完成した。ハンデスからの速攻フィニッシュ、試した人いる？カスタムレイアウトも設定したら対戦の見通しがめちゃくちゃ良くなった
+      </div>
+      <div class="community-meta">
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          48
+        </span>
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          12
+        </span>
+      </div>
+    </div>
+
+    <div class="community-card">
+      <div class="community-card-head">
+        <div class="avatar" style="background:rgba(0,255,255,0.12);color:#00FFFF;border:1px solid rgba(0,255,255,0.4);">NW</div>
+        <div>
+          <div class="community-name">NeonWave</div>
+          <div class="community-handle">@neonwave · 5時間前</div>
+        </div>
+      </div>
+      <div class="community-text">
+        水単コントロールで40戦やった結果、サーチ機能がめちゃくちゃ便利。山札から直接持ってこれるの本当に助かる。アンドゥも50手まで使えるし完璧
+      </div>
+      <div class="community-meta">
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          93
+        </span>
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          27
+        </span>
+      </div>
+    </div>
+
+    <div class="community-card">
+      <div class="community-card-head">
+        <div class="avatar" style="background:rgba(255,0,110,0.12);color:#FF006E;border:1px solid rgba(255,0,110,0.4);">FR</div>
+        <div>
+          <div class="community-name">FireRaiser</div>
+          <div class="community-handle">@fire_raiser · 1日前</div>
+        </div>
+      </div>
+      <div class="community-text">
+        game.jsonをカスタムして5文明すべてのゾーンを1画面に配置できた。レイアウトエディタが直感的で超良い。デュアルモニター勢には特におすすめ
+      </div>
+      <div class="community-meta">
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          71
+        </span>
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          19
+        </span>
+      </div>
+    </div>
+
+    <div class="community-card">
+      <div class="community-card-head">
+        <div class="avatar" style="background:rgba(68,238,136,0.12);color:#44EE88;border:1px solid rgba(68,238,136,0.4);">NS</div>
+        <div>
+          <div class="community-name">NatureSage</div>
+          <div class="community-handle">@nature_sage · 2日前</div>
+        </div>
+      </div>
+      <div class="community-text">
+        自然単マナ加速デッキ。10ターン目には20マナ溜めて大型出し放題。シミュレーターで練習しまくったらリアルでも勝率上がった笑
+      </div>
+      <div class="community-meta">
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          156
+        </span>
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          44
+        </span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Download CTA -->
+<section id="download">
+  <div class="download-glow"></div>
+  <span class="section-label" style="display:block;text-align:center;">GET STARTED</span>
+  <h2 class="download-title">
+    READY TO<br>
+    <span class="neon-cyan">DUEL?</span>
+  </h2>
+  <p class="download-sub">無料。インストール任意。今すぐ始められる。</p>
+  <div class="download-btns">
+    <a href="#" class="btn-download btn-download-win">
+      <svg class="btn-download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/>
+      </svg>
+      <div class="btn-download-text">
+        <span class="btn-download-sub">Download for</span>
+        <span class="btn-download-main">WINDOWS</span>
+      </div>
+    </a>
+    <a href="#" class="btn-download btn-download-src">
+      <svg class="btn-download-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/>
+        <path d="M9 18c-4.51 2-5-2-7-2"/>
+      </svg>
+      <div class="btn-download-text">
+        <span class="btn-download-sub">View on</span>
+        <span class="btn-download-main">GITHUB</span>
+      </div>
+    </a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <span class="footer-logo">TCG SIM</span>
+  <ul class="footer-links">
+    <li><a href="#">GitHub</a></li>
+    <li><a href="#">Issues</a></li>
+    <li><a href="#">Releases</a></li>
+    <li><a href="#">Wiki</a></li>
+  </ul>
+  <span class="footer-copy">© 2025 TCG SIMULATOR — FREE & OPEN SOURCE</span>
+</footer>
+
+<script>
+  // ── Particles ────────────────────────────────────────────────
+  const colors = ['#7C3AED','#00FFFF','#FF006E','#A78BFA','#44AAFF'];
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      left: ${Math.random() * 100}%;
+      top: ${Math.random() * 100}%;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      animation-delay: ${Math.random() * 4}s;
+      animation-duration: ${3 + Math.random() * 3}s;
+    `;
+    container.appendChild(p);
+  }
+
+  // ── Carousel ─────────────────────────────────────────────────
+  const track  = document.getElementById('carouselTrack');
+  const dotsEl = document.getElementById('carouselDots');
+  const cards  = track.querySelectorAll('.carousel-card');
+  const cardW  = 320 + 20; // width + gap
+  let current  = 0;
+
+  // Build dots
+  cards.forEach((_, i) => {
+    const d = document.createElement('button');
+    d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+    d.setAttribute('aria-label', `スライド ${i + 1}`);
+    d.addEventListener('click', () => goTo(i));
+    dotsEl.appendChild(d);
+  });
+
+  function goTo(idx) {
+    current = Math.max(0, Math.min(idx, cards.length - 1));
+    track.style.transform = `translateX(-${current * cardW}px)`;
+    dotsEl.querySelectorAll('.carousel-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === current);
+    });
+  }
+
+  document.getElementById('carouselPrev').addEventListener('click', () => goTo(current - 1));
+  document.getElementById('carouselNext').addEventListener('click', () => goTo(current + 1));
+
+  // Auto-advance
+  setInterval(() => goTo((current + 1) % cards.length), 4000);
+
+  // ── Reduced motion ───────────────────────────────────────────
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('[style*="animation"]').forEach(el => {
+      el.style.animation = 'none';
+    });
+  }
+</script>
+</body>
+</html>
